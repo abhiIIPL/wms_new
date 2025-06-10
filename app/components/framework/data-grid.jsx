@@ -61,6 +61,10 @@ export const DataGrid = forwardRef(function DataGrid({
   // ✅ CRITICAL FIX: Use local state to track current values for immediate access
   const currentFocusedId = useRef(focusedId);
   const currentSelectedIds = useRef(selectedIds);
+  
+  // ✅ NEW: Add debounced state update to handle rapid key presses
+  const pendingSelectionUpdate = useRef(null);
+  const selectionUpdateTimeout = useRef(null);
 
   // ✅ Update refs when props change
   useEffect(() => {
@@ -182,6 +186,26 @@ export const DataGrid = forwardRef(function DataGrid({
     }, 10);
   }, []);
 
+  // ✅ NEW: Debounced selection update function
+  const updateSelectionDebounced = useCallback((newSelectedIds) => {
+    // Clear any pending timeout
+    if (selectionUpdateTimeout.current) {
+      clearTimeout(selectionUpdateTimeout.current);
+    }
+    
+    // Store the pending update
+    pendingSelectionUpdate.current = newSelectedIds;
+    
+    // Set a very short timeout to batch rapid updates
+    selectionUpdateTimeout.current = setTimeout(() => {
+      if (pendingSelectionUpdate.current && onSelectionChange) {
+        console.log('🔥 Debounced selection update:', pendingSelectionUpdate.current);
+        onSelectionChange(pendingSelectionUpdate.current);
+        pendingSelectionUpdate.current = null;
+      }
+    }, 50); // 50ms debounce
+  }, [onSelectionChange]);
+
   // ✅ NEW: Handle Shift + Arrow key selection and navigation
   const handleShiftArrowNavigation = useCallback((direction) => {
     console.log('🔥 handleShiftArrowNavigation called with direction:', direction);
@@ -219,12 +243,11 @@ export const DataGrid = forwardRef(function DataGrid({
       console.log('🔥 Adding to selection, new array:', newSelectedIds);
     }
     
-    // ✅ CRITICAL FIX: Update local ref immediately
+    // ✅ CRITICAL FIX: Update local ref immediately for next operation
     currentSelectedIds.current = newSelectedIds;
     
-    // ✅ CRITICAL FIX: Update selection immediately
-    console.log('🔥 Calling onSelectionChange with:', newSelectedIds);
-    onSelectionChange(newSelectedIds);
+    // ✅ CRITICAL FIX: Use debounced update for rapid key presses
+    updateSelectionDebounced(newSelectedIds);
 
     // Move focus to next/previous row
     let targetIndex;
@@ -249,7 +272,7 @@ export const DataGrid = forwardRef(function DataGrid({
       // ✅ CRITICAL FIX: Update local ref immediately
       currentFocusedId.current = targetItem.id;
       
-      // Update focus
+      // Update focus immediately (no debounce needed for focus)
       console.log('🔥 Setting focus to item:', targetItem.id);
       onRowFocus(targetItem.id);
       
@@ -270,7 +293,7 @@ export const DataGrid = forwardRef(function DataGrid({
         }
       }, 10);
     }
-  }, [data, showCheckboxes, onSelectionChange, onRowFocus, finalColumnDefs]);
+  }, [data, showCheckboxes, onRowFocus, finalColumnDefs, updateSelectionDebounced]);
 
   // Grid options with enhanced navigation
   const gridOptions = useMemo(
@@ -329,16 +352,11 @@ export const DataGrid = forwardRef(function DataGrid({
         
         if (!suggestedNextCell) return null;
 
-        // ✅ HANDLE LEFT/RIGHT ARROW KEYS WITH ensureColumnVisible
+        // ✅ HANDLE LEFT/RIGHT ARROW KEYS FOR HORIZONTAL SCROLLING
         if (params.event && (params.event.key === 'ArrowLeft' || params.event.key === 'ArrowRight')) {
-          params.event.preventDefault();
-          
-          // Use our improved horizontal scroll handler
-          const direction = params.event.key === 'ArrowLeft' ? 'left' : 'right';
-          handleHorizontalScroll(direction);
-          
-          // Return null to prevent default AG Grid navigation
-          return null;
+          // Let AG Grid's navigateToNextCell handle this
+          // The logic is implemented in the navigateToNextCell callback above
+          return;
         }
 
         // Update row focus when navigating vertically (only if highlight is enabled)
@@ -505,6 +523,15 @@ export const DataGrid = forwardRef(function DataGrid({
       onSelectionChange(selectedIds);
     }
   }, [showCheckboxes, onSelectionChange]);
+
+  // ✅ Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (selectionUpdateTimeout.current) {
+        clearTimeout(selectionUpdateTimeout.current);
+      }
+    };
+  }, []);
 
   if (loading) {
     return <CustomLoadingOverlay />;
