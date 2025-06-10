@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useMemo, forwardRef, useImperativeHandle, 
 import { AgGridReact } from "ag-grid-react";
 import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";
 import { Button } from "@/components/ui/button";
-import { Package } from "lucide-react";
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -278,9 +277,9 @@ export const DataGrid = forwardRef(function DataGrid({
     }
   }, [data, showCheckboxes, onRowFocus, onSelectionChange, finalColumnDefs]);
 
-  // ✅ CRITICAL FIX: Handle Ctrl+A for select/deselect all
+  // ✅ CRITICAL FIX: Handle Ctrl+A for select/deselect all - COMPLETELY REWRITTEN
   const handleSelectAll = useCallback(() => {
-    console.log('🔥 handleSelectAll called');
+    console.log('🔥 DataGrid handleSelectAll called');
     console.log('🔥 Current selectedIds:', currentSelectedIds.current);
     console.log('🔥 Total data items:', data.length);
     
@@ -312,32 +311,28 @@ export const DataGrid = forwardRef(function DataGrid({
     
     console.log('🔥 New selection:', newSelectedIds);
     
-    // ✅ Update local ref immediately
+    // ✅ CRITICAL FIX: Update local ref immediately
     currentSelectedIds.current = newSelectedIds;
     
-    // ✅ Send update to parent
-    onSelectionChange(newSelectedIds);
+    // ✅ CRITICAL FIX: Force AG Grid to update BEFORE calling parent
+    if (gridRef.current?.api) {
+      const api = gridRef.current.api;
+      
+      // Get all row nodes
+      const allNodes = [];
+      api.forEachNode((node) => allNodes.push(node));
+      
+      // Update selection state for each node IMMEDIATELY
+      allNodes.forEach((node) => {
+        const shouldBeSelected = newSelectedIds.includes(node.data.id);
+        node.setSelected(shouldBeSelected, false); // false = don't trigger selection event
+      });
+      
+      console.log('🔥 AG Grid nodes updated, now calling parent onSelectionChange');
+    }
     
-    // ✅ CRITICAL FIX: Force AG Grid to update its selection state immediately
-    setTimeout(() => {
-      if (gridRef.current?.api) {
-        const api = gridRef.current.api;
-        
-        // Get all row nodes
-        const allNodes = [];
-        api.forEachNode((node) => allNodes.push(node));
-        
-        // Update selection state for each node
-        allNodes.forEach((node) => {
-          const shouldBeSelected = newSelectedIds.includes(node.data.id);
-          const isCurrentlySelected = node.isSelected();
-          
-          if (shouldBeSelected !== isCurrentlySelected) {
-            node.setSelected(shouldBeSelected, false);
-          }
-        });
-      }
-    }, 0);
+    // ✅ Send update to parent AFTER AG Grid is updated
+    onSelectionChange(newSelectedIds);
   }, [data, showCheckboxes, onSelectionChange]);
 
   // Grid options with enhanced navigation
