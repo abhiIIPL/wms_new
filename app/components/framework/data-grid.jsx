@@ -169,6 +169,67 @@ export const DataGrid = forwardRef(function DataGrid({
     }, 10);
   }, []);
 
+  // ✅ NEW: Handle Shift + Down for checkbox toggle and focus navigation
+  const handleShiftDownNavigation = useCallback(() => {
+    if (!gridRef.current?.api || !showCheckboxes || !onSelectionChange) return;
+
+    const api = gridRef.current.api;
+    const focusedCell = api.getFocusedCell();
+    if (!focusedCell || focusedCell.rowIndex == null) return;
+
+    // Get the current row data
+    const currentRowNode = api.getDisplayedRowAtIndex(focusedCell.rowIndex);
+    if (!currentRowNode || !currentRowNode.data) return;
+
+    const currentItemId = currentRowNode.data.id;
+    
+    // Toggle checkbox for current row
+    const isCurrentlySelected = selectedIds.includes(currentItemId);
+    let newSelectedIds;
+    
+    if (isCurrentlySelected) {
+      // Remove from selection
+      newSelectedIds = selectedIds.filter(id => id !== currentItemId);
+    } else {
+      // Add to selection
+      newSelectedIds = [...selectedIds, currentItemId];
+    }
+    
+    // Update selection
+    onSelectionChange(newSelectedIds);
+    
+    // Move focus to next row
+    const nextRowIndex = focusedCell.rowIndex + 1;
+    if (nextRowIndex < data.length) {
+      // Get the current column
+      let currentColumnId;
+      if (focusedCell.column) {
+        currentColumnId = focusedCell.column.getColId ? 
+          focusedCell.column.getColId() : 
+          focusedCell.column.colId || 
+          focusedCell.column;
+      }
+      
+      // Set focus to next row, same column
+      if (currentColumnId) {
+        api.setFocusedCell(nextRowIndex, currentColumnId);
+        
+        // Update row focus if highlight is enabled
+        if (enableHighlight && onRowFocus) {
+          const nextRowNode = api.getDisplayedRowAtIndex(nextRowIndex);
+          if (nextRowNode && nextRowNode.data) {
+            onRowFocus(nextRowNode.data.id);
+          }
+        }
+        
+        // Ensure row is visible
+        setTimeout(() => {
+          api.ensureIndexVisible(nextRowIndex, 'bottom');
+        }, 0);
+      }
+    }
+  }, [data, selectedIds, onSelectionChange, showCheckboxes, enableHighlight, onRowFocus]);
+
   // Grid options with enhanced navigation
   const gridOptions = useMemo(
     () => ({
@@ -205,6 +266,22 @@ export const DataGrid = forwardRef(function DataGrid({
           }
         }
         
+        // ✅ NEW: Handle Shift + Down for checkbox toggle
+        if (params.event && params.event.shiftKey && params.event.key === 'ArrowDown') {
+          params.event.preventDefault();
+          params.event.stopPropagation();
+          params.event.stopImmediatePropagation();
+          
+          // Trigger our custom Shift + Down handler
+          setTimeout(() => {
+            handleShiftDownNavigation();
+          }, 0);
+          
+          // Return current cell to prevent default navigation
+          const currentCell = params.previousCellPosition;
+          return currentCell || null;
+        }
+        
         if (!suggestedNextCell) return null;
 
         // ✅ HANDLE LEFT/RIGHT ARROW KEYS WITH ensureColumnVisible
@@ -237,7 +314,7 @@ export const DataGrid = forwardRef(function DataGrid({
         return suggestedNextCell;
       },
     }),
-    [onRowFocus, showCheckboxes, enablePagination, headerHeight, enableHighlight, handleHorizontalScroll]
+    [onRowFocus, showCheckboxes, enablePagination, headerHeight, enableHighlight, handleHorizontalScroll, handleShiftDownNavigation]
   );
 
   // Sync selectedIds with AG Grid selection
@@ -316,6 +393,15 @@ export const DataGrid = forwardRef(function DataGrid({
         return;
       }
 
+      // ✅ NEW: Handle Shift + Down for checkbox toggle at document level
+      if (event.shiftKey && event.key === 'ArrowDown') {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        handleShiftDownNavigation();
+        return;
+      }
+
       // Handle Enter key when a row is focused (only if highlight is enabled)
       if (event.key === "Enter" && focusedId && onRowClick && enableHighlight) {
         event.preventDefault();
@@ -340,7 +426,7 @@ export const DataGrid = forwardRef(function DataGrid({
     return () => {
       document.removeEventListener("keydown", handleKeyDown, true);
     };
-  }, [focusedId, onRowClick, showCheckboxes, onSelectAll, data.length, enableHighlight]);
+  }, [focusedId, onRowClick, showCheckboxes, onSelectAll, data.length, enableHighlight, handleShiftDownNavigation]);
 
   // Handle cell focus events
   const handleCellFocused = useCallback((event) => {
