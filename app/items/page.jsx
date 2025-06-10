@@ -329,9 +329,9 @@ export default function ItemsPage() {
       }
 
       switch (event.key) {
-        case "n":
-        case "N":
-          if (event.ctrlKey || event.metaKey) {
+        case "a":
+        case "A":
+          if (event.altKey) {
             event.preventDefault();
             handleAddItem();
           }
