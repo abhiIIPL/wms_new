@@ -167,7 +167,7 @@ export const TransactionHistory = forwardRef(function TransactionHistory({
       headerName: "Supplier",
       width: 180,
       cellRenderer: (params) => (
-        <div className="font-medium text-[10px] truncate" title={params.value} data-testid={`transaction-supplier-${params.data.id}`}>
+        <div className="font-medium text-[10px] truncate\" title={params.value} data-testid={`transaction-supplier-${params.data.id}`}>
           {params.value}
         </div>
       ),
