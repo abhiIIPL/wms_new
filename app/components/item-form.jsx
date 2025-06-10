@@ -256,9 +256,23 @@ export function ItemForm({ mode = "create", initialData = null, onClose }) {
     }
   };
 
-  useEffect(()=>{
-    
-  },[]);
+    // ✅ Handle Escape key to trigger cancel button
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape' && cancelBtnRef.current) {
+        event.preventDefault();
+        cancelBtnRef.current.click();
+      }
+    };
+
+    // Add event listener to document
+    document.addEventListener('keydown', handleKeyDown);
+
+    // Cleanup function to remove event listener
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   return (
     <div className="h-full flex flex-col" data-testid="item-form-container">
