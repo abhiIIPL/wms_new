@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,7 @@ import { DeleteItemDialog } from "./delete-item-dialog";
 
 export function ItemForm({ mode = "create", initialData = null, onClose }) {
   const navigate = useNavigate();
+  const cancelBtnRef = useRef();
   const [loading, setLoading] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [formData, setFormData] = useState({
@@ -1961,6 +1962,7 @@ export function ItemForm({ mode = "create", initialData = null, onClose }) {
             data-testid="item-form-actions-right"
           >
             <Button
+              ref={cancelBtnRef}
               type="button"
               variant="outline"
               onClick={handleCancel}
