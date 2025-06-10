@@ -286,9 +286,9 @@ export default function ItemsPage() {
         return;
       }
 
-      // ✅ CRITICAL FIX: Handle Alt + Down Arrow to switch to transaction grid
-      if (event.altKey && event.key === 'ArrowDown') {
-        console.log('🔥 Alt + Down Arrow detected - switching to transaction grid');
+      // ✅ CRITICAL FIX: Handle Ctrl + Down Arrow to switch to transaction grid
+      if ((event.ctrlKey || event.metaKey) && event.key === 'ArrowDown') {
+        console.log('🔥 Ctrl + Down Arrow detected - switching to transaction grid');
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
@@ -299,9 +299,9 @@ export default function ItemsPage() {
         return;
       }
 
-      // ✅ CRITICAL FIX: Handle Alt + Up Arrow to switch to main grid
-      if (event.altKey && event.key === 'ArrowUp') {
-        console.log('🔥 Alt + Up Arrow detected - switching to main grid');
+      // ✅ CRITICAL FIX: Handle Ctrl + Up Arrow to switch to main grid
+      if ((event.ctrlKey || event.metaKey) && event.key === 'ArrowUp') {
+        console.log('🔥 Ctrl + Up Arrow detected - switching to main grid');
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
@@ -804,8 +804,8 @@ export default function ItemsPage() {
           <span data-testid="items-page-shortcut-home-end">Home/End First/Last on page</span>
           <span data-testid="items-page-shortcut-select-all">Ctrl+A Select/Deselect All</span>
           <span data-testid="items-page-shortcut-new">Ctrl+N New</span>
-          <span data-testid="items-page-shortcut-grid-switch" className="font-medium text-blue-600">Alt+↓ Switch to Transactions</span>
-          <span data-testid="items-page-shortcut-grid-switch-back" className="font-medium text-blue-600">Alt+↑ Switch to Items</span>
+          <span data-testid="items-page-shortcut-grid-switch" className="font-medium text-blue-600">Ctrl+↓ Switch to Transactions</span>
+          <span data-testid="items-page-shortcut-grid-switch-back" className="font-medium text-blue-600">Ctrl+↑ Switch to Items</span>
         </div>
       </div>
     </SidebarInset>
