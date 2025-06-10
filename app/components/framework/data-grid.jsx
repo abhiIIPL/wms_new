@@ -62,9 +62,8 @@ export const DataGrid = forwardRef(function DataGrid({
   const currentFocusedId = useRef(focusedId);
   const currentSelectedIds = useRef(selectedIds);
   
-  // ✅ NEW: Add debounced state update to handle rapid key presses
-  const pendingSelectionUpdate = useRef(null);
-  const selectionUpdateTimeout = useRef(null);
+  // ✅ NEW: Track selection range for Shift+Arrow navigation
+  const selectionAnchor = useRef(null);
 
   // ✅ Update refs when props change
   useEffect(() => {
@@ -186,26 +185,6 @@ export const DataGrid = forwardRef(function DataGrid({
     }, 10);
   }, []);
 
-  // ✅ NEW: Debounced selection update function
-  const updateSelectionDebounced = useCallback((newSelectedIds) => {
-    // Clear any pending timeout
-    if (selectionUpdateTimeout.current) {
-      clearTimeout(selectionUpdateTimeout.current);
-    }
-    
-    // Store the pending update
-    pendingSelectionUpdate.current = newSelectedIds;
-    
-    // Set a very short timeout to batch rapid updates
-    selectionUpdateTimeout.current = setTimeout(() => {
-      if (pendingSelectionUpdate.current && onSelectionChange) {
-        console.log('🔥 Debounced selection update:', pendingSelectionUpdate.current);
-        onSelectionChange(pendingSelectionUpdate.current);
-        pendingSelectionUpdate.current = null;
-      }
-    }, 50); // 50ms debounce
-  }, [onSelectionChange]);
-
   // ✅ NEW: Handle Shift + Arrow key selection and navigation
   const handleShiftArrowNavigation = useCallback((direction) => {
     console.log('🔥 handleShiftArrowNavigation called with direction:', direction);
@@ -226,28 +205,11 @@ export const DataGrid = forwardRef(function DataGrid({
 
     console.log('🔥 Current focus index:', currentFocusIndex);
 
-    // Toggle selection of current row
-    const currentItem = data[currentFocusIndex];
-    const isCurrentlySelected = currentSelectedIds.current.includes(currentItem.id);
-    
-    console.log('🔥 Current item:', currentItem.id, 'isCurrentlySelected:', isCurrentlySelected);
-    
-    let newSelectedIds;
-    if (isCurrentlySelected) {
-      // Remove from selection
-      newSelectedIds = currentSelectedIds.current.filter(id => id !== currentItem.id);
-      console.log('🔥 Removing from selection, new array:', newSelectedIds);
-    } else {
-      // Add to selection
-      newSelectedIds = [...currentSelectedIds.current, currentItem.id];
-      console.log('🔥 Adding to selection, new array:', newSelectedIds);
+    // ✅ CRITICAL FIX: Set anchor on first Shift+Arrow if not set
+    if (selectionAnchor.current === null) {
+      selectionAnchor.current = currentFocusIndex;
+      console.log('🔥 Setting selection anchor to:', selectionAnchor.current);
     }
-    
-    // ✅ CRITICAL FIX: Update local ref immediately for next operation
-    currentSelectedIds.current = newSelectedIds;
-    
-    // ✅ CRITICAL FIX: Use debounced update for rapid key presses
-    updateSelectionDebounced(newSelectedIds);
 
     // Move focus to next/previous row
     let targetIndex;
@@ -266,6 +228,34 @@ export const DataGrid = forwardRef(function DataGrid({
     }
 
     console.log('🔥 Moving focus to index:', targetIndex);
+
+    // ✅ CRITICAL FIX: Calculate range selection from anchor to target
+    const startIndex = Math.min(selectionAnchor.current, targetIndex);
+    const endIndex = Math.max(selectionAnchor.current, targetIndex);
+    
+    // Get all items in the range
+    const rangeItems = data.slice(startIndex, endIndex + 1);
+    const rangeIds = rangeItems.map(item => item.id);
+    
+    // ✅ CRITICAL FIX: Combine existing selection with range selection
+    const existingSelection = currentSelectedIds.current.filter(id => {
+      // Keep selections that are not in the current range
+      const itemIndex = data.findIndex(item => item.id === id);
+      return itemIndex < startIndex || itemIndex > endIndex;
+    });
+    
+    const newSelectedIds = [...existingSelection, ...rangeIds];
+    
+    console.log('🔥 Range selection from', startIndex, 'to', endIndex);
+    console.log('🔥 Range IDs:', rangeIds);
+    console.log('🔥 Existing selection outside range:', existingSelection);
+    console.log('🔥 New selection:', newSelectedIds);
+    
+    // ✅ CRITICAL FIX: Update local ref immediately for next operation
+    currentSelectedIds.current = newSelectedIds;
+    
+    // ✅ CRITICAL FIX: Send update immediately (no debouncing)
+    onSelectionChange(newSelectedIds);
 
     const targetItem = data[targetIndex];
     if (targetItem) {
@@ -293,7 +283,7 @@ export const DataGrid = forwardRef(function DataGrid({
         }
       }, 10);
     }
-  }, [data, showCheckboxes, onRowFocus, finalColumnDefs, updateSelectionDebounced]);
+  }, [data, showCheckboxes, onRowFocus, onSelectionChange, finalColumnDefs]);
 
   // Grid options with enhanced navigation
   const gridOptions = useMemo(
@@ -407,6 +397,9 @@ export const DataGrid = forwardRef(function DataGrid({
   const handleRowClick = useCallback((event) => {
     const clickedId = event.data.id;
     
+    // ✅ CRITICAL FIX: Reset selection anchor on regular click
+    selectionAnchor.current = null;
+    
     // Only handle focus logic if highlight is enabled
     if (enableHighlight) {
       // If this is the second click on the same row that's already focused, trigger row click
@@ -475,6 +468,11 @@ export const DataGrid = forwardRef(function DataGrid({
         return;
       }
 
+      // ✅ CRITICAL FIX: Reset selection anchor on non-Shift navigation
+      if (!event.shiftKey && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+        selectionAnchor.current = null;
+      }
+
       // Handle Enter key when a row is focused (only if highlight is enabled)
       if (event.key === "Enter" && currentFocusedId.current && onRowClick && enableHighlight) {
         event.preventDefault();
@@ -523,15 +521,6 @@ export const DataGrid = forwardRef(function DataGrid({
       onSelectionChange(selectedIds);
     }
   }, [showCheckboxes, onSelectionChange]);
-
-  // ✅ Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (selectionUpdateTimeout.current) {
-        clearTimeout(selectionUpdateTimeout.current);
-      }
-    };
-  }, []);
 
   if (loading) {
     return <CustomLoadingOverlay />;
