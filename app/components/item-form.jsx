@@ -336,7 +336,7 @@ export function ItemForm({ mode = "create", initialData = null, onClose }) {
             >
               {saving ? (
                 <>
-                  <div className="h-4 w-4 animate-spin rounded-full border border-current border-t-transparent mr-2" data-testid="item-form-save-spinner" />
+                  <div className="h-4 w-4 animate-spin rounded-full border border-current border-t-transparent mr-2\" data-testid="item-form-save-spinner" />
                   Saving...
                 </>
               ) : (
@@ -392,7 +392,7 @@ export function ItemForm({ mode = "create", initialData = null, onClose }) {
                         className={errors.name ? "border-red-500" : ""}
                         data-testid="item-form-name-input"
                       />
-                      {errors.name && <p className="text-sm text-red-500 mt-1" data-testid="item-form-name-error">{errors.name}</p>}
+                      {errors.name && <p className="text-sm text-red-500 mt-1\" data-testid="item-form-name-error">{errors.name}</p>}
                     </div>
                     <div className="col-span-3" data-testid="item-form-product-code-field">
                       <Label htmlFor="product_code" data-testid="item-form-product-code-label">Product Code</Label>
@@ -485,7 +485,7 @@ export function ItemForm({ mode = "create", initialData = null, onClose }) {
                         className={errors.manufacturer ? "border-red-500" : ""}
                         data-testid="item-form-manufacturer-input"
                       />
-                      {errors.manufacturer && <p className="text-sm text-red-500 mt-1" data-testid="item-form-manufacturer-error">{errors.manufacturer}</p>}
+                      {errors.manufacturer && <p className="text-sm text-red-500 mt-1\" data-testid="item-form-manufacturer-error">{errors.manufacturer}</p>}
                     </div>
                     <div className="col-span-4" data-testid="item-form-manufacturer-group-field">
                       <Label htmlFor="manufacturer_group" data-testid="item-form-manufacturer-group-label">Manufacturer Group</Label>
@@ -538,7 +538,7 @@ export function ItemForm({ mode = "create", initialData = null, onClose }) {
                         className={errors.unit_per_pack ? "border-red-500" : ""}
                         data-testid="item-form-unit-per-pack-input"
                       />
-                      {errors.unit_per_pack && <p className="text-sm text-red-500 mt-1" data-testid="item-form-unit-per-pack-error">{errors.unit_per_pack}</p>}
+                      {errors.unit_per_pack && <p className="text-sm text-red-500 mt-1\" data-testid="item-form-unit-per-pack-error">{errors.unit_per_pack}</p>}
                     </div>
                     <div className="col-span-3" data-testid="item-form-outer-quantity-field">
                       <Label htmlFor="outer_quantity_pack" data-testid="item-form-outer-quantity-label">Outer Quantity Pack</Label>
@@ -647,7 +647,7 @@ export function ItemForm({ mode = "create", initialData = null, onClose }) {
                         className={errors.sale_rate ? "border-red-500" : ""}
                         data-testid="item-form-sale-rate-input"
                       />
-                      {errors.sale_rate && <p className="text-sm text-red-500 mt-1" data-testid="item-form-sale-rate-error">{errors.sale_rate}</p>}
+                      {errors.sale_rate && <p className="text-sm text-red-500 mt-1\" data-testid="item-form-sale-rate-error">{errors.sale_rate}</p>}
                     </div>
                     <div className="col-span-4" data-testid="item-form-box-mrp-field">
                       <Label htmlFor="box_mrp" data-testid="item-form-box-mrp-label">Box MRP</Label>
