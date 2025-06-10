@@ -296,7 +296,7 @@ export const DataGrid = forwardRef(function DataGrid({
       suppressScrollOnNewData: true,
       suppressAnimationFrame: false,
       
-      // ✅ ENHANCED NAVIGATION WITH PROPER CTRL+DOWN/UP BLOCKING AND SHIFT+ARROW HANDLING
+      // ✅ ENHANCED NAVIGATION WITH PROPER   +DOWN/UP BLOCKING AND SHIFT+ARROW HANDLING
       navigateToNextCell: (params) => {
         const suggestedNextCell = params.nextCellPosition;
         
