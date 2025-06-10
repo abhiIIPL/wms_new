@@ -167,10 +167,20 @@ export const DataGrid = forwardRef(function DataGrid({
       suppressScrollOnNewData: true,
       suppressAnimationFrame: false,
       
-      // ✅ ENHANCED NAVIGATION WITH ensureColumnVisible
+      // ✅ ENHANCED NAVIGATION WITH DISABLED CTRL+DOWN/UP
       navigateToNextCell: (params) => {
         const suggestedNextCell = params.nextCellPosition;
         if (!suggestedNextCell) return null;
+
+        // ✅ DISABLE CTRL + DOWN/UP ARROW KEYS
+        if (params.event && (params.event.ctrlKey || params.event.metaKey)) {
+          if (params.event.key === 'ArrowDown' || params.event.key === 'ArrowUp') {
+            params.event.preventDefault();
+            params.event.stopPropagation();
+            // Return null to prevent any navigation
+            return null;
+          }
+        }
 
         // ✅ HANDLE LEFT/RIGHT ARROW KEYS WITH ensureColumnVisible
         if (params.event && (params.event.key === 'ArrowLeft' || params.event.key === 'ArrowRight')) {
@@ -271,6 +281,13 @@ export const DataGrid = forwardRef(function DataGrid({
       );
 
       if (!isGridFocused) return;
+
+      // ✅ BLOCK CTRL + DOWN/UP ARROW KEYS AT THE DOCUMENT LEVEL TOO
+      if ((event.ctrlKey || event.metaKey) && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
 
       // Handle Enter key when a row is focused (only if highlight is enabled)
       if (event.key === "Enter" && focusedId && onRowClick && enableHighlight) {
