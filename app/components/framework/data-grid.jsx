@@ -149,19 +149,20 @@ export const DataGrid = forwardRef(function DataGrid({
     }, 10);
   }, []);
 
-  // ✅ CRITICAL FIX: Create a custom event handler that completely blocks Ctrl + Down/Up
-  const handleGridKeyDown = useCallback((event) => {
-    // ✅ BLOCK CTRL + DOWN/UP COMPLETELY BEFORE AG GRID SEES IT
-    if ((event.ctrlKey || event.metaKey) && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-      // Don't let AG Grid process this event at all
-      return false;
+  // ✅ CRITICAL FIX: Custom key handler that completely blocks problematic keys
+  const customKeyHandler = useCallback((event) => {
+    // ✅ COMPLETELY BLOCK CTRL + DOWN/UP AND CTRL + HOME/END
+    if (event.ctrlKey || event.metaKey) {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || 
+          event.key === 'Home' || event.key === 'End') {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        return false; // Prevent any further processing
+      }
     }
     
-    // Allow all other events to proceed normally
-    return true;
+    return true; // Allow other keys to proceed
   }, []);
 
   // Grid options with enhanced navigation
@@ -181,6 +182,14 @@ export const DataGrid = forwardRef(function DataGrid({
       suppressMultiRangeSelection: true,
       suppressScrollOnNewData: true,
       suppressAnimationFrame: false,
+      
+      // ✅ CRITICAL FIX: Override processDataFromClipboard to block Ctrl operations
+      processDataFromClipboard: () => null,
+      
+      // ✅ CRITICAL FIX: Override key handling completely
+      onCellKeyDown: (event) => {
+        return customKeyHandler(event.event);
+      },
       
       // ✅ SIMPLIFIED NAVIGATION - NO CTRL+DOWN/UP BLOCKING HERE
       navigateToNextCell: (params) => {
@@ -217,7 +226,7 @@ export const DataGrid = forwardRef(function DataGrid({
         return suggestedNextCell;
       },
     }),
-    [onRowFocus, showCheckboxes, enablePagination, headerHeight, enableHighlight, handleHorizontalScroll]
+    [onRowFocus, showCheckboxes, enablePagination, headerHeight, enableHighlight, handleHorizontalScroll, customKeyHandler]
   );
 
   // Sync selectedIds with AG Grid selection
@@ -342,7 +351,7 @@ export const DataGrid = forwardRef(function DataGrid({
     }
   }, [showCheckboxes, onSelectionChange]);
 
-  // ✅ CRITICAL FIX: Add grid ready handler to attach keydown listener directly to grid
+  // ✅ CRITICAL FIX: Add grid ready handler with comprehensive key blocking
   const handleGridReady = useCallback((params) => {
     // ✅ ONLY SET INITIAL FOCUS IF HIGHLIGHT IS ENABLED
     if (params.api && data.length > 0 && enableHighlight) {
@@ -363,22 +372,57 @@ export const DataGrid = forwardRef(function DataGrid({
       }
     }
 
-    // ✅ CRITICAL FIX: Attach keydown listener directly to the grid element
+    // ✅ CRITICAL FIX: Override AG Grid's internal key handling
     const gridElement = gridRef.current?.eGridDiv;
     if (gridElement) {
-      gridElement.addEventListener('keydown', handleGridKeyDown, true);
-    }
-  }, [data, enableHighlight, focusedId, showCheckboxes, finalColumnDefs, onRowFocus, handleGridKeyDown]);
+      // Remove any existing listeners first
+      const existingHandler = gridElement._customKeyHandler;
+      if (existingHandler) {
+        gridElement.removeEventListener('keydown', existingHandler, true);
+      }
 
-  // ✅ Clean up grid keydown listener
+      // Add our custom handler
+      const keyHandler = (event) => {
+        if ((event.ctrlKey || event.metaKey) && 
+            (event.key === 'ArrowDown' || event.key === 'ArrowUp' || 
+             event.key === 'Home' || event.key === 'End')) {
+          event.preventDefault();
+          event.stopPropagation();
+          event.stopImmediatePropagation();
+          return false;
+        }
+        return true;
+      };
+
+      gridElement.addEventListener('keydown', keyHandler, true);
+      gridElement._customKeyHandler = keyHandler; // Store reference for cleanup
+    }
+
+    // ✅ OVERRIDE AG GRID'S INTERNAL NAVIGATION METHODS
+    if (params.api) {
+      const originalNavigate = params.api.navigate;
+      params.api.navigate = function(direction) {
+        // Block specific navigation directions that cause issues
+        if (direction === 'ctrl+down' || direction === 'ctrl+up' || 
+            direction === 'ctrl+home' || direction === 'ctrl+end') {
+          return; // Do nothing
+        }
+        // Allow other navigation
+        return originalNavigate.call(this, direction);
+      };
+    }
+  }, [data, enableHighlight, focusedId, showCheckboxes, finalColumnDefs, onRowFocus]);
+
+  // ✅ Clean up custom key handlers
   useEffect(() => {
     return () => {
       const gridElement = gridRef.current?.eGridDiv;
-      if (gridElement) {
-        gridElement.removeEventListener('keydown', handleGridKeyDown, true);
+      if (gridElement && gridElement._customKeyHandler) {
+        gridElement.removeEventListener('keydown', gridElement._customKeyHandler, true);
+        delete gridElement._customKeyHandler;
       }
     };
-  }, [handleGridKeyDown]);
+  }, []);
 
   if (loading) {
     return <CustomLoadingOverlay />;
