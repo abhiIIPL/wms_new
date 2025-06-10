@@ -407,10 +407,10 @@ export default function ItemsPage() {
     switchToMainGrid,
   ]);
 
-  // ✅ Handle clicks outside grids to refocus the active grid
+  // ✅ Handle clicks to switch focus between grids
   useEffect(() => {
     const handleDocumentClick = (event) => {
-      // Check if click is outside both grids
+      // Check if click is in either grid
       const mainGridElement = mainGridRef.current?.getGridElement?.();
       const transactionGridElement = transactionGridRef.current?.getGridElement?.();
       
@@ -427,10 +427,12 @@ export default function ItemsPage() {
           }
         }, 10);
       } else if (clickedInMainGrid && activeGrid !== 'main') {
-        // Clicked in main grid but it's not active - switch to it
+        // ✅ Clicked in main grid but it's not active - switch to it
+        console.log('🔥 Clicked in main grid - switching focus');
         setActiveGrid('main');
       } else if (clickedInTransactionGrid && activeGrid !== 'transaction') {
-        // Clicked in transaction grid but it's not active - switch to it
+        // ✅ Clicked in transaction grid but it's not active - switch to it
+        console.log('🔥 Clicked in transaction grid - switching focus');
         setActiveGrid('transaction');
       }
     };
