@@ -286,27 +286,19 @@ export default function ItemsPage() {
         return;
       }
 
-      // ✅ CRITICAL FIX: Handle Ctrl + Down Arrow to switch to transaction grid
-      if ((event.ctrlKey || event.metaKey) && event.key === 'ArrowDown') {
-        console.log('🔥 Ctrl + Down Arrow detected - switching to transaction grid');
+      // ✅ NEW: Handle Tab key to switch between grids
+      if (event.key === 'Tab') {
+        console.log('🔥 Tab key detected - switching grids');
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
         
         if (activeGrid === 'main') {
-          switchToTransactionGrid();
-        }
-        return;
-      }
-
-      // ✅ CRITICAL FIX: Handle Ctrl + Up Arrow to switch to main grid
-      if ((event.ctrlKey || event.metaKey) && event.key === 'ArrowUp') {
-        console.log('🔥 Ctrl + Up Arrow detected - switching to main grid');
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
-        
-        if (activeGrid === 'transaction') {
+          // Only switch to transaction grid if we have a focused item (transaction data available)
+          if (focusedItem) {
+            switchToTransactionGrid();
+          }
+        } else {
           switchToMainGrid();
         }
         return;
@@ -804,8 +796,7 @@ export default function ItemsPage() {
           <span data-testid="items-page-shortcut-home-end">Home/End First/Last on page</span>
           <span data-testid="items-page-shortcut-select-all">Ctrl+A Select/Deselect All</span>
           <span data-testid="items-page-shortcut-new">Ctrl+N New</span>
-          <span data-testid="items-page-shortcut-grid-switch" className="font-medium text-blue-600">Ctrl+↓ Switch to Transactions</span>
-          <span data-testid="items-page-shortcut-grid-switch-back" className="font-medium text-blue-600">Ctrl+↑ Switch to Items</span>
+          <span data-testid="items-page-shortcut-tab-switch" className="font-medium text-blue-600">Tab Switch Grids</span>
         </div>
       </div>
     </SidebarInset>
