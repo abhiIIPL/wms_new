@@ -443,24 +443,30 @@ export const DataGrid = forwardRef(function DataGrid({
     [onRowFocus, showCheckboxes, enablePagination, headerHeight, enableHighlight, handleHorizontalScroll, handleShiftArrowNavigation]
   );
 
-  // Sync selectedIds with AG Grid selection
+  // ✅ CRITICAL FIX: Sync selectedIds with AG Grid selection - FORCE UPDATE WHEN NEEDED
   useEffect(() => {
     if (gridRef.current?.api && showCheckboxes) {
       const api = gridRef.current.api;
+      
+      console.log('🔥 Syncing AG Grid selection with parent state:', selectedIds);
       
       // Get all row nodes
       const allNodes = [];
       api.forEachNode((node) => allNodes.push(node));
       
-      // Update selection state for each node
+      // ✅ CRITICAL FIX: Force update all nodes regardless of current state
       allNodes.forEach((node) => {
         const shouldBeSelected = selectedIds.includes(node.data.id);
         const isCurrentlySelected = node.isSelected();
         
+        // ✅ ALWAYS update the node selection state to match parent
         if (shouldBeSelected !== isCurrentlySelected) {
-          node.setSelected(shouldBeSelected, false);
+          console.log(`🔥 Updating node ${node.data.id}: ${isCurrentlySelected} -> ${shouldBeSelected}`);
+          node.setSelected(shouldBeSelected, false); // false = don't trigger selection event
         }
       });
+      
+      console.log('🔥 AG Grid selection sync complete');
     }
   }, [selectedIds, showCheckboxes]);
 
