@@ -191,8 +191,22 @@ export const DataGrid = forwardRef(function DataGrid({
       newSelectedIds = [...selectedIds, currentItem.id];
     }
     
-    // Update selection
+    // ✅ CRITICAL FIX: Update selection immediately and sync with AG Grid
     onSelectionChange(newSelectedIds);
+
+    // ✅ CRITICAL FIX: Force AG Grid to update selection state immediately
+    setTimeout(() => {
+      if (gridRef.current?.api) {
+        const allNodes = [];
+        gridRef.current.api.forEachNode((node) => allNodes.push(node));
+        
+        // Update selection state for the current row
+        const currentNode = allNodes.find(node => node.data.id === currentItem.id);
+        if (currentNode) {
+          currentNode.setSelected(!isCurrentlySelected, false);
+        }
+      }
+    }, 0);
 
     // Move focus to next/previous row
     let targetIndex;
@@ -212,13 +226,19 @@ export const DataGrid = forwardRef(function DataGrid({
       // Set AG Grid focus
       const firstColumn = showCheckboxes ? 'select' : finalColumnDefs[0]?.field;
       if (firstColumn) {
-        api.setFocusedCell(targetIndex, firstColumn);
+        setTimeout(() => {
+          if (gridRef.current?.api) {
+            gridRef.current.api.setFocusedCell(targetIndex, firstColumn);
+          }
+        }, 0);
       }
       
       // Ensure row is visible
       setTimeout(() => {
-        api.ensureIndexVisible(targetIndex, 'bottom');
-      }, 0);
+        if (gridRef.current?.api) {
+          gridRef.current.api.ensureIndexVisible(targetIndex, 'bottom');
+        }
+      }, 10);
     }
   }, [data, focusedId, selectedIds, showCheckboxes, onSelectionChange, onRowFocus, finalColumnDefs]);
 
