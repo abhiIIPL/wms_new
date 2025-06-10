@@ -159,8 +159,9 @@ export default function ItemsPage() {
         : 0,
   };
 
-  // Handle selection change from table
+  // ✅ CRITICAL FIX: Handle selection change from table with proper state update
   const handleSelectionChange = useCallback((selectedIds) => {
+    console.log('ItemsPage: Selection changed to:', selectedIds);
     setSelectedItemIds(selectedIds);
   }, []);
 
@@ -252,6 +253,12 @@ export default function ItemsPage() {
       // Let AG Grid handle horizontal navigation entirely
       if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
         return; // Do nothing - let AG Grid handle it
+      }
+
+      // ✅ CRITICAL FIX: EXCLUDE Shift + Arrow keys from page-level handling
+      // Let DataGrid handle Shift + Arrow navigation entirely
+      if (event.shiftKey && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+        return; // Do nothing - let DataGrid handle it
       }
 
       // ✅ Only refocus for VERTICAL navigation and specific actions
