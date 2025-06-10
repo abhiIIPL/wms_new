@@ -57,14 +57,27 @@ export const DataGrid = forwardRef(function DataGrid({
 }, ref) {
   const gridRef = useRef();
   const [lastClickedId, setLastClickedId] = useState(null);
+  
+  // ✅ CRITICAL FIX: Use local state to track current values for immediate access
+  const currentFocusedId = useRef(focusedId);
+  const currentSelectedIds = useRef(selectedIds);
+
+  // ✅ Update refs when props change
+  useEffect(() => {
+    currentFocusedId.current = focusedId;
+  }, [focusedId]);
+
+  useEffect(() => {
+    currentSelectedIds.current = selectedIds;
+  }, [selectedIds]);
 
   // ✅ Expose refocus method and grid element to parent
   useImperativeHandle(ref, () => ({
     refocus: () => {
       if (gridRef.current?.api && data.length > 0 && enableHighlight) {
         // Find the focused row index
-        const focusIndex = focusedId 
-          ? data.findIndex(item => item.id === focusedId)
+        const focusIndex = currentFocusedId.current 
+          ? data.findIndex(item => item.id === currentFocusedId.current)
           : 0;
         const validIndex = focusIndex >= 0 ? focusIndex : 0;
         
@@ -172,15 +185,15 @@ export const DataGrid = forwardRef(function DataGrid({
   // ✅ NEW: Handle Shift + Arrow key selection and navigation
   const handleShiftArrowNavigation = useCallback((direction) => {
     console.log('🔥 handleShiftArrowNavigation called with direction:', direction);
-    console.log('🔥 Current state - focusedId:', focusedId, 'selectedIds:', selectedIds);
+    console.log('🔥 Current state - focusedId:', currentFocusedId.current, 'selectedIds:', currentSelectedIds.current);
     
-    if (!gridRef.current?.api || !focusedId || !showCheckboxes || !onSelectionChange || !onRowFocus) {
+    if (!gridRef.current?.api || !currentFocusedId.current || !showCheckboxes || !onSelectionChange || !onRowFocus) {
       console.log('🔥 Early return - missing requirements');
       return;
     }
 
     const api = gridRef.current.api;
-    const currentFocusIndex = data.findIndex(item => item.id === focusedId);
+    const currentFocusIndex = data.findIndex(item => item.id === currentFocusedId.current);
     
     if (currentFocusIndex === -1) {
       console.log('🔥 Early return - current focus index not found');
@@ -191,20 +204,23 @@ export const DataGrid = forwardRef(function DataGrid({
 
     // Toggle selection of current row
     const currentItem = data[currentFocusIndex];
-    const isCurrentlySelected = selectedIds.includes(currentItem.id);
+    const isCurrentlySelected = currentSelectedIds.current.includes(currentItem.id);
     
     console.log('🔥 Current item:', currentItem.id, 'isCurrentlySelected:', isCurrentlySelected);
     
     let newSelectedIds;
     if (isCurrentlySelected) {
       // Remove from selection
-      newSelectedIds = selectedIds.filter(id => id !== currentItem.id);
+      newSelectedIds = currentSelectedIds.current.filter(id => id !== currentItem.id);
       console.log('🔥 Removing from selection, new array:', newSelectedIds);
     } else {
       // Add to selection
-      newSelectedIds = [...selectedIds, currentItem.id];
+      newSelectedIds = [...currentSelectedIds.current, currentItem.id];
       console.log('🔥 Adding to selection, new array:', newSelectedIds);
     }
+    
+    // ✅ CRITICAL FIX: Update local ref immediately
+    currentSelectedIds.current = newSelectedIds;
     
     // ✅ CRITICAL FIX: Update selection immediately
     console.log('🔥 Calling onSelectionChange with:', newSelectedIds);
@@ -230,6 +246,9 @@ export const DataGrid = forwardRef(function DataGrid({
 
     const targetItem = data[targetIndex];
     if (targetItem) {
+      // ✅ CRITICAL FIX: Update local ref immediately
+      currentFocusedId.current = targetItem.id;
+      
       // Update focus
       console.log('🔥 Setting focus to item:', targetItem.id);
       onRowFocus(targetItem.id);
@@ -251,7 +270,7 @@ export const DataGrid = forwardRef(function DataGrid({
         }
       }, 10);
     }
-  }, [data, focusedId, selectedIds, showCheckboxes, onSelectionChange, onRowFocus, finalColumnDefs]);
+  }, [data, showCheckboxes, onSelectionChange, onRowFocus, finalColumnDefs]);
 
   // Grid options with enhanced navigation
   const gridOptions = useMemo(
@@ -326,6 +345,8 @@ export const DataGrid = forwardRef(function DataGrid({
         if (enableHighlight && (params.event?.key === 'ArrowUp' || params.event?.key === 'ArrowDown')) {
           const rowData = params.api.getDisplayedRowAtIndex(suggestedNextCell.rowIndex);
           if (rowData && onRowFocus) {
+            // ✅ Update local ref immediately
+            currentFocusedId.current = rowData.data.id;
             onRowFocus(rowData.data.id);
           }
 
@@ -371,11 +392,12 @@ export const DataGrid = forwardRef(function DataGrid({
     // Only handle focus logic if highlight is enabled
     if (enableHighlight) {
       // If this is the second click on the same row that's already focused, trigger row click
-      if (clickedId === focusedId && clickedId === lastClickedId && onRowClick) {
+      if (clickedId === currentFocusedId.current && clickedId === lastClickedId && onRowClick) {
         onRowClick(clickedId);
       } else {
         // First click or different row - just focus it
         if (onRowFocus) {
+          currentFocusedId.current = clickedId;
           onRowFocus(clickedId);
         }
         setLastClickedId(clickedId);
@@ -386,7 +408,7 @@ export const DataGrid = forwardRef(function DataGrid({
         onRowClick(clickedId);
       }
     }
-  }, [focusedId, lastClickedId, onRowClick, onRowFocus, enableHighlight]);
+  }, [lastClickedId, onRowClick, onRowFocus, enableHighlight]);
 
   // Reset last clicked when focus changes externally
   useEffect(() => {
@@ -436,9 +458,9 @@ export const DataGrid = forwardRef(function DataGrid({
       }
 
       // Handle Enter key when a row is focused (only if highlight is enabled)
-      if (event.key === "Enter" && focusedId && onRowClick && enableHighlight) {
+      if (event.key === "Enter" && currentFocusedId.current && onRowClick && enableHighlight) {
         event.preventDefault();
-        onRowClick(focusedId);
+        onRowClick(currentFocusedId.current);
       }
 
       // Handle Ctrl+A for select all (only if checkboxes are enabled)
@@ -459,7 +481,7 @@ export const DataGrid = forwardRef(function DataGrid({
     return () => {
       document.removeEventListener("keydown", handleKeyDown, true);
     };
-  }, [focusedId, onRowClick, showCheckboxes, onSelectAll, data.length, enableHighlight, handleShiftArrowNavigation]);
+  }, [onRowClick, showCheckboxes, onSelectAll, data.length, enableHighlight, handleShiftArrowNavigation]);
 
   // Handle cell focus events
   const handleCellFocused = useCallback((event) => {
@@ -467,6 +489,7 @@ export const DataGrid = forwardRef(function DataGrid({
     if (event.rowIndex != null && onRowFocus && enableHighlight) {
       const rowNode = event.api.getDisplayedRowAtIndex(event.rowIndex);
       if (rowNode && rowNode.data) {
+        currentFocusedId.current = rowNode.data.id;
         onRowFocus(rowNode.data.id);
       }
     }
@@ -478,6 +501,7 @@ export const DataGrid = forwardRef(function DataGrid({
       const selectedNodes = event.api.getSelectedNodes();
       const selectedIds = selectedNodes.map((node) => node.data.id);
       console.log('🔥 AG Grid selection changed to:', selectedIds);
+      currentSelectedIds.current = selectedIds;
       onSelectionChange(selectedIds);
     }
   }, [showCheckboxes, onSelectionChange]);
@@ -610,6 +634,7 @@ export const DataGrid = forwardRef(function DataGrid({
               
               // Set our row focus
               if (onRowFocus && data[focusIndex]) {
+                currentFocusedId.current = data[focusIndex].id;
                 onRowFocus(data[focusIndex].id);
               }
             }
