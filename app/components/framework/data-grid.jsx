@@ -171,56 +171,67 @@ export const DataGrid = forwardRef(function DataGrid({
 
   // ✅ NEW: Handle Shift + Arrow key selection and navigation
   const handleShiftArrowNavigation = useCallback((direction) => {
-    if (!gridRef.current?.api || !focusedId || !showCheckboxes || !onSelectionChange || !onRowFocus) return;
+    console.log('🔥 handleShiftArrowNavigation called with direction:', direction);
+    console.log('🔥 Current state - focusedId:', focusedId, 'selectedIds:', selectedIds);
+    
+    if (!gridRef.current?.api || !focusedId || !showCheckboxes || !onSelectionChange || !onRowFocus) {
+      console.log('🔥 Early return - missing requirements');
+      return;
+    }
 
     const api = gridRef.current.api;
     const currentFocusIndex = data.findIndex(item => item.id === focusedId);
     
-    if (currentFocusIndex === -1) return;
+    if (currentFocusIndex === -1) {
+      console.log('🔥 Early return - current focus index not found');
+      return;
+    }
+
+    console.log('🔥 Current focus index:', currentFocusIndex);
 
     // Toggle selection of current row
     const currentItem = data[currentFocusIndex];
     const isCurrentlySelected = selectedIds.includes(currentItem.id);
     
+    console.log('🔥 Current item:', currentItem.id, 'isCurrentlySelected:', isCurrentlySelected);
+    
     let newSelectedIds;
     if (isCurrentlySelected) {
       // Remove from selection
       newSelectedIds = selectedIds.filter(id => id !== currentItem.id);
+      console.log('🔥 Removing from selection, new array:', newSelectedIds);
     } else {
       // Add to selection
       newSelectedIds = [...selectedIds, currentItem.id];
+      console.log('🔥 Adding to selection, new array:', newSelectedIds);
     }
     
-    // ✅ CRITICAL FIX: Update selection immediately and sync with AG Grid
+    // ✅ CRITICAL FIX: Update selection immediately
+    console.log('🔥 Calling onSelectionChange with:', newSelectedIds);
     onSelectionChange(newSelectedIds);
-
-    // ✅ CRITICAL FIX: Force AG Grid to update selection state immediately
-    setTimeout(() => {
-      if (gridRef.current?.api) {
-        const allNodes = [];
-        gridRef.current.api.forEachNode((node) => allNodes.push(node));
-        
-        // Update selection state for the current row
-        const currentNode = allNodes.find(node => node.data.id === currentItem.id);
-        if (currentNode) {
-          currentNode.setSelected(!isCurrentlySelected, false);
-        }
-      }
-    }, 0);
 
     // Move focus to next/previous row
     let targetIndex;
     if (direction === 'down') {
       targetIndex = currentFocusIndex + 1;
-      if (targetIndex >= data.length) return; // Don't move beyond last row
+      if (targetIndex >= data.length) {
+        console.log('🔥 Cannot move down - at last row');
+        return; // Don't move beyond last row
+      }
     } else {
       targetIndex = currentFocusIndex - 1;
-      if (targetIndex < 0) return; // Don't move beyond first row
+      if (targetIndex < 0) {
+        console.log('🔥 Cannot move up - at first row');
+        return; // Don't move beyond first row
+      }
     }
+
+    console.log('🔥 Moving focus to index:', targetIndex);
 
     const targetItem = data[targetIndex];
     if (targetItem) {
       // Update focus
+      console.log('🔥 Setting focus to item:', targetItem.id);
       onRowFocus(targetItem.id);
       
       // Set AG Grid focus
@@ -267,6 +278,7 @@ export const DataGrid = forwardRef(function DataGrid({
         // ✅ CRITICAL FIX: Block Ctrl + Down/Up BEFORE any processing
         if (params.event && (params.event.ctrlKey || params.event.metaKey)) {
           if (params.event.key === 'ArrowDown' || params.event.key === 'ArrowUp') {
+            console.log('🔥 Blocking Ctrl + Arrow in navigateToNextCell');
             // Completely stop the event and return the current cell to prevent any navigation
             params.event.preventDefault();
             params.event.stopPropagation();
@@ -281,6 +293,7 @@ export const DataGrid = forwardRef(function DataGrid({
         // ✅ NEW: Handle Shift + Arrow keys for selection and navigation
         if (params.event && params.event.shiftKey) {
           if (params.event.key === 'ArrowDown' || params.event.key === 'ArrowUp') {
+            console.log('🔥 Handling Shift + Arrow in navigateToNextCell');
             params.event.preventDefault();
             params.event.stopPropagation();
             params.event.stopImmediatePropagation();
@@ -397,8 +410,11 @@ export const DataGrid = forwardRef(function DataGrid({
 
       if (!isGridFocused) return;
 
+      console.log('🔥 DataGrid keydown event:', event.key, 'shiftKey:', event.shiftKey, 'ctrlKey:', event.ctrlKey);
+
       // ✅ CRITICAL FIX: Block Ctrl + Down/Up at document level with immediate stop
       if ((event.ctrlKey || event.metaKey) && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+        console.log('🔥 Blocking Ctrl + Arrow at document level');
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
@@ -408,6 +424,7 @@ export const DataGrid = forwardRef(function DataGrid({
 
       // ✅ NEW: Handle Shift + Arrow keys at document level
       if (event.shiftKey && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+        console.log('🔥 Handling Shift + Arrow at document level');
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
@@ -460,6 +477,7 @@ export const DataGrid = forwardRef(function DataGrid({
     if (showCheckboxes && onSelectionChange) {
       const selectedNodes = event.api.getSelectedNodes();
       const selectedIds = selectedNodes.map((node) => node.data.id);
+      console.log('🔥 AG Grid selection changed to:', selectedIds);
       onSelectionChange(selectedIds);
     }
   }, [showCheckboxes, onSelectionChange]);
