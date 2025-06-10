@@ -52,7 +52,7 @@ export const DataGrid = forwardRef(function DataGrid({
   showAddButton = false,
   onAddClick,
   className = "",
-  onSelectAll,
+  onSelectAll, // ✅ CRITICAL FIX: Accept onSelectAll prop from parent
   ...gridProps
 }, ref) {
   const gridRef = useRef();
@@ -278,14 +278,29 @@ export const DataGrid = forwardRef(function DataGrid({
     }
   }, [data, showCheckboxes, onRowFocus, onSelectionChange, finalColumnDefs]);
 
-  // ✅ CRITICAL FIX: Handle Ctrl+A for select/deselect all - COMPLETELY REWRITTEN
+  // ✅ CRITICAL FIX: Handle Ctrl+A for select/deselect all - USE PARENT'S FUNCTION
   const handleSelectAll = useCallback(() => {
     console.log('🔥 DataGrid handleSelectAll called');
+    
+    if (!showCheckboxes) {
+      console.log('🔥 Early return - checkboxes disabled');
+      return;
+    }
+
+    // ✅ CRITICAL FIX: Use parent's onSelectAll function if provided
+    if (onSelectAll) {
+      console.log('🔥 Using parent onSelectAll function');
+      onSelectAll();
+      return;
+    }
+
+    // ✅ Fallback to internal logic if no parent function provided
+    console.log('🔥 Using internal select all logic');
     console.log('🔥 Current selectedIds:', currentSelectedIds.current);
     console.log('🔥 Total data items:', data.length);
     
-    if (!showCheckboxes || !onSelectionChange) {
-      console.log('🔥 Early return - checkboxes disabled or no onSelectionChange');
+    if (!onSelectionChange) {
+      console.log('🔥 Early return - no onSelectionChange');
       return;
     }
 
@@ -334,7 +349,7 @@ export const DataGrid = forwardRef(function DataGrid({
     
     // ✅ Send update to parent AFTER AG Grid is updated
     onSelectionChange(newSelectedIds);
-  }, [data, showCheckboxes, onSelectionChange]);
+  }, [data, showCheckboxes, onSelectionChange, onSelectAll]); // ✅ Add onSelectAll to dependencies
 
   // Grid options with enhanced navigation
   const gridOptions = useMemo(

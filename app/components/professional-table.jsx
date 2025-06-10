@@ -82,6 +82,7 @@ export const ProfessionalTable = forwardRef(function ProfessionalTable({
   onRowClick,
   focusedItemId,
   onRowFocus,
+  onSelectAll, // ✅ CRITICAL FIX: Accept onSelectAll prop from parent
 }, ref) {
   const dataGridRef = useRef();
 
@@ -465,17 +466,6 @@ export const ProfessionalTable = forwardRef(function ProfessionalTable({
     onSelectionChange(selectedIds);
   }, [onSelectionChange]);
 
-  // Handle select all
-  const handleSelectAll = useCallback(() => {
-    const allItemIds = items.map(item => item.id);
-    if (selectedItemIds.length === allItemIds.length && 
-        allItemIds.every(id => selectedItemIds.includes(id))) {
-      onSelectionChange([]);
-    } else {
-      onSelectionChange(allItemIds);
-    }
-  }, [items, selectedItemIds, onSelectionChange]);
-
   return (
     <div className="h-full w-full" data-testid="professional-table-container">
       <DataGrid
@@ -497,7 +487,7 @@ export const ProfessionalTable = forwardRef(function ProfessionalTable({
         emptyDescription="Get started by adding your first item."
         showAddButton={true}
         onAddClick={() => window.location.href = "/items/add"}
-        onSelectAll={handleSelectAll}
+        onSelectAll={onSelectAll} // ✅ CRITICAL FIX: Pass the parent's onSelectAll function
         className="h-full"
         data-testid="professional-table-data-grid"
       />
