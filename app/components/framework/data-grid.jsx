@@ -296,14 +296,14 @@ export const DataGrid = forwardRef(function DataGrid({
       suppressScrollOnNewData: true,
       suppressAnimationFrame: false,
       
-      // ✅ ENHANCED NAVIGATION WITH PROPER CTRL+DOWN/UP BLOCKING AND SHIFT+ARROW HANDLING
+      // ✅ ENHANCED NAVIGATION WITH PROPER ALT+DOWN/UP BLOCKING AND SHIFT+ARROW HANDLING
       navigateToNextCell: (params) => {
         const suggestedNextCell = params.nextCellPosition;
         
-        // ✅ CRITICAL FIX: Block Ctrl + Down/Up BEFORE any processing
-        if (params.event && (params.event.ctrlKey || params.event.metaKey)) {
+        // ✅ CRITICAL FIX: Block Alt + Down/Up BEFORE any processing
+        if (params.event && params.event.altKey) {
           if (params.event.key === 'ArrowDown' || params.event.key === 'ArrowUp') {
-            console.log('🔥 Blocking Ctrl + Arrow in navigateToNextCell');
+            console.log('🔥 Blocking Alt + Arrow in navigateToNextCell');
             // Completely stop the event and return the current cell to prevent any navigation
             params.event.preventDefault();
             params.event.stopPropagation();
@@ -437,11 +437,11 @@ export const DataGrid = forwardRef(function DataGrid({
 
       if (!isGridFocused) return;
 
-      console.log('🔥 DataGrid keydown event:', event.key, 'shiftKey:', event.shiftKey, 'ctrlKey:', event.ctrlKey);
+      console.log('🔥 DataGrid keydown event:', event.key, 'shiftKey:', event.shiftKey, 'altKey:', event.altKey);
 
-      // ✅ CRITICAL FIX: Block Ctrl + Down/Up at document level with immediate stop
-      if ((event.ctrlKey || event.metaKey) && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
-        console.log('🔥 Blocking Ctrl + Arrow at document level');
+      // ✅ CRITICAL FIX: Block Alt + Down/Up at document level with immediate stop
+      if (event.altKey && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+        console.log('🔥 Blocking Alt + Arrow at document level');
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
