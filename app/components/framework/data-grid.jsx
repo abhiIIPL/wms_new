@@ -296,7 +296,7 @@ export const DataGrid = forwardRef(function DataGrid({
       suppressScrollOnNewData: true,
       suppressAnimationFrame: false,
       
-      // ✅ ENHANCED NAVIGATION WITH PROPER   +DOWN/UP BLOCKING AND SHIFT+ARROW HANDLING
+      // ✅ ENHANCED NAVIGATION WITH PROPER CTRL+DOWN/UP BLOCKING AND SHIFT+ARROW HANDLING
       navigateToNextCell: (params) => {
         const suggestedNextCell = params.nextCellPosition;
         
@@ -335,11 +335,16 @@ export const DataGrid = forwardRef(function DataGrid({
         
         if (!suggestedNextCell) return null;
 
-        // ✅ HANDLE LEFT/RIGHT ARROW KEYS FOR HORIZONTAL SCROLLING
+        // ✅ CRITICAL FIX: Handle LEFT/RIGHT ARROW KEYS with ensureColumnVisible
         if (params.event && (params.event.key === 'ArrowLeft' || params.event.key === 'ArrowRight')) {
-          // Let AG Grid's navigateToNextCell handle this
-          // The logic is implemented in the navigateToNextCell callback above
-          return;
+          params.event.preventDefault();
+          
+          // Use our improved horizontal scroll handler
+          const direction = params.event.key === 'ArrowLeft' ? 'left' : 'right';
+          handleHorizontalScroll(direction);
+          
+          // Return null to prevent default AG Grid navigation
+          return null;
         }
 
         // Update row focus when navigating vertically (only if highlight is enabled)
@@ -480,7 +485,8 @@ export const DataGrid = forwardRef(function DataGrid({
         onSelectAll();
       }
 
-      // ✅ HANDLE LEFT/RIGHT ARROW KEYS FOR HORIZONTAL SCROLLING
+      // ✅ CRITICAL FIX: Let AG Grid handle LEFT/RIGHT ARROW KEYS
+      // Don't prevent default for horizontal navigation - let navigateToNextCell handle it
       if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
         // Let AG Grid's navigateToNextCell handle this
         // The logic is implemented in the navigateToNextCell callback above
