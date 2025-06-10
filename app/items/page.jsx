@@ -274,7 +274,7 @@ export default function ItemsPage() {
     }, 50);
   }, []);
 
-  // Handle keyboard shortcuts
+  // ✅ CRITICAL FIX: Handle keyboard shortcuts ONLY for the active grid
   useEffect(() => {
     const handleKeyDown = (event) => {
       // Don't handle keyboard events if we're in an input or select
@@ -316,13 +316,16 @@ export default function ItemsPage() {
         return; // Do nothing - let DataGrid handle it
       }
 
-      // ✅ Only refocus for VERTICAL navigation and specific actions
+      // ✅ CRITICAL FIX: Only handle shortcuts for MAIN GRID when it's active
+      if (activeGrid !== 'main') {
+        // When transaction grid is active, don't handle any page-level shortcuts
+        // except Tab (which is handled above)
+        return;
+      }
+
+      // ✅ Only refocus for VERTICAL navigation and specific actions (MAIN GRID ONLY)
       if (['ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown', 'Enter'].includes(event.key)) {
-        if (activeGrid === 'main') {
-          refocusMainGrid();
-        } else if (activeGrid === 'transaction') {
-          refocusTransactionGrid();
-        }
+        refocusMainGrid();
       }
 
       switch (event.key) {
