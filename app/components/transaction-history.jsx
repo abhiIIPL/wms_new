@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, forwardRef, useImperativeHandle, useRef } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Package } from "lucide-react"
 import { DataGrid } from "./framework/data-grid"
@@ -107,8 +107,30 @@ const generateAmoxicillinTransactions = (itemId, itemName) => {
   return transactions.sort((a, b) => new Date(b.purchaseDate) - new Date(a.purchaseDate))
 }
 
-export function TransactionHistory({ itemId, itemName, isExpanded = false, onToggle }) {
+export const TransactionHistory = forwardRef(function TransactionHistory({ 
+  itemId, 
+  itemName, 
+  isExpanded = false, 
+  onToggle,
+  enableHighlight = false // ✅ NEW: Control whether this grid can be highlighted
+}, ref) {
   const [focusedTransactionId, setFocusedTransactionId] = useState(null)
+  const dataGridRef = useRef()
+
+  // ✅ Expose refocus method to parent
+  useImperativeHandle(ref, () => ({
+    refocus: () => {
+      if (dataGridRef.current && dataGridRef.current.refocus) {
+        dataGridRef.current.refocus();
+      }
+    },
+    getGridElement: () => {
+      if (dataGridRef.current && dataGridRef.current.getGridElement) {
+        return dataGridRef.current.getGridElement();
+      }
+      return null;
+    }
+  }));
 
   // Get transactions - check for Amoxicillin first, then fallback to mock data
   let allTransactions = []
@@ -118,7 +140,7 @@ export function TransactionHistory({ itemId, itemName, isExpanded = false, onTog
     allTransactions = mockTransactions[itemId] || []
   }
 
-  // ✅ SHOW ONLY 3 TRANSACTIONS
+  // ✅ SHOW ONLY 4 TRANSACTIONS
   const transactions = allTransactions.slice(0, 4)
 
   const formatDate = (dateString) => {
@@ -145,7 +167,7 @@ export function TransactionHistory({ itemId, itemName, isExpanded = false, onTog
       headerName: "Supplier",
       width: 180,
       cellRenderer: (params) => (
-        <div className="font-medium text-[10px] truncate\" title={params.value} data-testid={`transaction-supplier-${params.data.id}`}>
+        <div className="font-medium text-[10px] truncate" title={params.value} data-testid={`transaction-supplier-${params.data.id}`}>
           {params.value}
         </div>
       ),
@@ -261,6 +283,7 @@ export function TransactionHistory({ itemId, itemName, isExpanded = false, onTog
   return (
     <div className="h-full px-2" data-testid="transaction-history-container">
       <DataGrid
+        ref={dataGridRef} // ✅ Pass ref to DataGrid
         data={transactions}
         columnDefs={columnDefs}
         loading={false}
@@ -268,7 +291,7 @@ export function TransactionHistory({ itemId, itemName, isExpanded = false, onTog
         onRowFocus={setFocusedTransactionId}
         showCheckboxes={false}
         enablePagination={false}
-        enableHighlight={false} // ✅ CRITICAL FIX: Disable row highlighting in transaction table
+        enableHighlight={enableHighlight} // ✅ CRITICAL: Use the prop to control highlighting
         rowHeight={20}
         headerHeight={24}
         emptyMessage="No transactions found"
@@ -278,4 +301,4 @@ export function TransactionHistory({ itemId, itemName, isExpanded = false, onTog
       />
     </div>
   )
-}
+})

@@ -24,6 +24,11 @@ import { TransactionHistory } from "@/app/components/transaction-history";
 export default function ItemsPage() {
   const navigate = useNavigate();
   const mainGridRef = useRef(); // ✅ Reference to main grid
+  const transactionGridRef = useRef(); // ✅ Reference to transaction grid
+  
+  // ✅ NEW: Track which grid currently has focus
+  const [activeGrid, setActiveGrid] = useState('main'); // 'main' or 'transaction'
+  
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -159,7 +164,7 @@ export default function ItemsPage() {
         : 0,
   };
 
-  // ✅ CRITICAL FIX: Handle selection change from table with proper state update
+  // Handle selection change from table
   const handleSelectionChange = useCallback((selectedIds) => {
     console.log('ItemsPage: Selection changed to:', selectedIds);
     setSelectedItemIds(selectedIds);
@@ -232,9 +237,41 @@ export default function ItemsPage() {
 
   // ✅ Function to refocus main grid - ONLY for vertical navigation
   const refocusMainGrid = useCallback(() => {
-    if (mainGridRef.current && mainGridRef.current.refocus) {
+    if (activeGrid === 'main' && mainGridRef.current && mainGridRef.current.refocus) {
       mainGridRef.current.refocus();
     }
+  }, [activeGrid]);
+
+  // ✅ Function to refocus transaction grid
+  const refocusTransactionGrid = useCallback(() => {
+    if (activeGrid === 'transaction' && transactionGridRef.current && transactionGridRef.current.refocus) {
+      transactionGridRef.current.refocus();
+    }
+  }, [activeGrid]);
+
+  // ✅ Function to switch focus between grids
+  const switchToTransactionGrid = useCallback(() => {
+    console.log('🔥 Switching focus to transaction grid');
+    setActiveGrid('transaction');
+    
+    // Small delay to ensure the transaction grid is ready
+    setTimeout(() => {
+      if (transactionGridRef.current && transactionGridRef.current.refocus) {
+        transactionGridRef.current.refocus();
+      }
+    }, 50);
+  }, []);
+
+  const switchToMainGrid = useCallback(() => {
+    console.log('🔥 Switching focus to main grid');
+    setActiveGrid('main');
+    
+    // Small delay to ensure the main grid is ready
+    setTimeout(() => {
+      if (mainGridRef.current && mainGridRef.current.refocus) {
+        mainGridRef.current.refocus();
+      }
+    }, 50);
   }, []);
 
   // Handle keyboard shortcuts
@@ -246,6 +283,32 @@ export default function ItemsPage() {
         event.target.tagName === "SELECT" ||
         event.target.tagName === "TEXTAREA"
       ) {
+        return;
+      }
+
+      // ✅ CRITICAL FIX: Handle Ctrl + Down Arrow to switch to transaction grid
+      if ((event.ctrlKey || event.metaKey) && event.key === 'ArrowDown') {
+        console.log('🔥 Ctrl + Down Arrow detected - switching to transaction grid');
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        
+        if (activeGrid === 'main') {
+          switchToTransactionGrid();
+        }
+        return;
+      }
+
+      // ✅ CRITICAL FIX: Handle Ctrl + Up Arrow to switch to main grid
+      if ((event.ctrlKey || event.metaKey) && event.key === 'ArrowUp') {
+        console.log('🔥 Ctrl + Up Arrow detected - switching to main grid');
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        
+        if (activeGrid === 'transaction') {
+          switchToMainGrid();
+        }
         return;
       }
 
@@ -263,7 +326,11 @@ export default function ItemsPage() {
 
       // ✅ Only refocus for VERTICAL navigation and specific actions
       if (['ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown', 'Enter'].includes(event.key)) {
-        refocusMainGrid();
+        if (activeGrid === 'main') {
+          refocusMainGrid();
+        } else if (activeGrid === 'transaction') {
+          refocusTransactionGrid();
+        }
       }
 
       switch (event.key) {
@@ -316,7 +383,7 @@ export default function ItemsPage() {
           }
           break;
         case "Enter":
-          if (focusedItem) {
+          if (focusedItem && activeGrid === 'main') {
             event.preventDefault();
             handleRowClick(focusedItem.id);
           }
@@ -339,18 +406,37 @@ export default function ItemsPage() {
     items,
     selectedItemIds,
     refocusMainGrid,
+    refocusTransactionGrid,
+    activeGrid,
+    switchToTransactionGrid,
+    switchToMainGrid,
   ]);
 
-  // ✅ Handle clicks outside main grid to refocus it
+  // ✅ Handle clicks outside grids to refocus the active grid
   useEffect(() => {
     const handleDocumentClick = (event) => {
-      // Check if click is outside the main grid area
+      // Check if click is outside both grids
       const mainGridElement = mainGridRef.current?.getGridElement?.();
-      if (mainGridElement && !mainGridElement.contains(event.target)) {
-        // Small delay to ensure the click event is processed first
+      const transactionGridElement = transactionGridRef.current?.getGridElement?.();
+      
+      const clickedInMainGrid = mainGridElement && mainGridElement.contains(event.target);
+      const clickedInTransactionGrid = transactionGridElement && transactionGridElement.contains(event.target);
+      
+      if (!clickedInMainGrid && !clickedInTransactionGrid) {
+        // Click outside both grids - refocus the active grid
         setTimeout(() => {
-          refocusMainGrid();
+          if (activeGrid === 'main') {
+            refocusMainGrid();
+          } else if (activeGrid === 'transaction') {
+            refocusTransactionGrid();
+          }
         }, 10);
+      } else if (clickedInMainGrid && activeGrid !== 'main') {
+        // Clicked in main grid but it's not active - switch to it
+        setActiveGrid('main');
+      } else if (clickedInTransactionGrid && activeGrid !== 'transaction') {
+        // Clicked in transaction grid but it's not active - switch to it
+        setActiveGrid('transaction');
       }
     };
 
@@ -358,7 +444,7 @@ export default function ItemsPage() {
     return () => {
       document.removeEventListener("click", handleDocumentClick);
     };
-  }, [refocusMainGrid]);
+  }, [activeGrid, refocusMainGrid, refocusTransactionGrid]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("en-US", {
@@ -379,7 +465,12 @@ export default function ItemsPage() {
           </div>
         </div>
 
-        <div className="ml-auto flex items-center gap-4 text-xs text-muted-foreground" data-testid="items-page-header-stats"></div>
+        <div className="ml-auto flex items-center gap-4 text-xs text-muted-foreground" data-testid="items-page-header-stats">
+          {/* ✅ Show which grid is currently active */}
+          <div className="text-xs text-muted-foreground">
+            Active Grid: <span className="font-medium text-blue-600">{activeGrid === 'main' ? 'Items' : 'Transactions'}</span>
+          </div>
+        </div>
       </header>
 
       <div className="flex flex-col h-[calc(100vh-2.5rem)]" data-testid="items-page-content">
@@ -398,6 +489,7 @@ export default function ItemsPage() {
                       onRowClick={handleRowClick}
                       focusedItemId={focusedItemId}
                       onRowFocus={handleRowFocus}
+                      enableHighlight={activeGrid === 'main'} // ✅ Only highlight when main grid is active
                       data-testid="items-page-professional-table"
                     />
                   </div>
@@ -571,10 +663,12 @@ export default function ItemsPage() {
                 <div className="w-[80%] flex-shrink-0 overflow-hidden" data-testid="items-page-transaction-history-section">
                   {focusedItem && (
                     <TransactionHistory
+                      ref={transactionGridRef} // ✅ Pass ref to transaction grid
                       itemId={focusedItem.id}
                       itemName={focusedItem.name}
                       isExpanded={showTransactionHistory}
                       onToggle={setShowTransactionHistory}
+                      enableHighlight={activeGrid === 'transaction'} // ✅ Only highlight when transaction grid is active
                       data-testid="items-page-transaction-history"
                     />
                   )}
@@ -710,6 +804,8 @@ export default function ItemsPage() {
           <span data-testid="items-page-shortcut-home-end">Home/End First/Last on page</span>
           <span data-testid="items-page-shortcut-select-all">Ctrl+A Select/Deselect All</span>
           <span data-testid="items-page-shortcut-new">Ctrl+N New</span>
+          <span data-testid="items-page-shortcut-grid-switch" className="font-medium text-blue-600">Ctrl+↓ Switch to Transactions</span>
+          <span data-testid="items-page-shortcut-grid-switch-back" className="font-medium text-blue-600">Ctrl+↑ Switch to Items</span>
         </div>
       </div>
     </SidebarInset>
