@@ -167,20 +167,25 @@ export const DataGrid = forwardRef(function DataGrid({
       suppressScrollOnNewData: true,
       suppressAnimationFrame: false,
       
-      // ✅ ENHANCED NAVIGATION WITH DISABLED CTRL+DOWN/UP
+      // ✅ ENHANCED NAVIGATION WITH PROPER CTRL+DOWN/UP BLOCKING
       navigateToNextCell: (params) => {
         const suggestedNextCell = params.nextCellPosition;
-        if (!suggestedNextCell) return null;
-
-        // ✅ DISABLE CTRL + DOWN/UP ARROW KEYS
+        
+        // ✅ CRITICAL FIX: Block Ctrl + Down/Up BEFORE any processing
         if (params.event && (params.event.ctrlKey || params.event.metaKey)) {
           if (params.event.key === 'ArrowDown' || params.event.key === 'ArrowUp') {
+            // Completely stop the event and return the current cell to prevent any navigation
             params.event.preventDefault();
             params.event.stopPropagation();
-            // Return null to prevent any navigation
-            return null;
+            params.event.stopImmediatePropagation();
+            
+            // Return the current cell position to maintain focus where it is
+            const currentCell = params.previousCellPosition;
+            return currentCell || null;
           }
         }
+        
+        if (!suggestedNextCell) return null;
 
         // ✅ HANDLE LEFT/RIGHT ARROW KEYS WITH ensureColumnVisible
         if (params.event && (params.event.key === 'ArrowLeft' || params.event.key === 'ArrowRight')) {
@@ -282,10 +287,12 @@ export const DataGrid = forwardRef(function DataGrid({
 
       if (!isGridFocused) return;
 
-      // ✅ BLOCK CTRL + DOWN/UP ARROW KEYS AT THE DOCUMENT LEVEL TOO
+      // ✅ CRITICAL FIX: Block Ctrl + Down/Up at document level with immediate stop
       if ((event.ctrlKey || event.metaKey) && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
         event.preventDefault();
         event.stopPropagation();
+        event.stopImmediatePropagation();
+        // Don't process any further - just return
         return;
       }
 
@@ -309,9 +316,9 @@ export const DataGrid = forwardRef(function DataGrid({
       }
     };
 
-    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown, true); // Use capture phase
     return () => {
-      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown, true);
     };
   }, [focusedId, onRowClick, showCheckboxes, onSelectAll, data.length, enableHighlight]);
 
