@@ -256,6 +256,10 @@ export function ItemForm({ mode = "create", initialData = null, onClose }) {
     }
   };
 
+  useEffect(()=>{
+    
+  },[]);
+
   return (
     <div className="h-full flex flex-col" data-testid="item-form-container">
       {/* Scrollable Form Content */}
