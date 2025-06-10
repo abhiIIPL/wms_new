@@ -186,7 +186,7 @@ export const DataGrid = forwardRef(function DataGrid({
     }, 10);
   }, []);
 
-  // ✅ NEW: Handle Shift + Arrow key selection and navigation with TOGGLE behavior
+  // ✅ CRITICAL FIX: Handle Shift + Arrow key selection - SELECT CURRENT ROW FIRST, THEN MOVE
   const handleShiftArrowNavigation = useCallback((direction) => {
     console.log('🔥 handleShiftArrowNavigation called with direction:', direction);
     console.log('🔥 Current state - focusedId:', currentFocusedId.current, 'selectedIds:', currentSelectedIds.current);
@@ -206,14 +206,33 @@ export const DataGrid = forwardRef(function DataGrid({
 
     console.log('🔥 Current focus index:', currentFocusIndex);
 
-    // ✅ CRITICAL FIX: Set anchor on first Shift+Arrow if not set
-    if (selectionAnchor.current === null) {
-      selectionAnchor.current = currentFocusIndex;
-      lastSelectionDirection.current = null;
-      console.log('🔥 Setting selection anchor to:', selectionAnchor.current);
+    // ✅ CRITICAL FIX: FIRST - Toggle selection of CURRENT row (where focus is)
+    const currentItem = data[currentFocusIndex];
+    const isCurrentSelected = currentSelectedIds.current.includes(currentItem.id);
+    
+    console.log('🔥 Current item:', currentItem.id, 'isCurrentlySelected:', isCurrentSelected);
+    
+    let newSelectedIds;
+    
+    if (isCurrentSelected) {
+      // ✅ UNCHECK: Remove current item from selection
+      console.log('🔥 Current item is selected - UNCHECKING');
+      newSelectedIds = currentSelectedIds.current.filter(id => id !== currentItem.id);
+    } else {
+      // ✅ CHECK: Add current item to selection
+      console.log('🔥 Current item is not selected - CHECKING');
+      newSelectedIds = [...currentSelectedIds.current, currentItem.id];
     }
+    
+    console.log('🔥 Calling onSelectionChange with:', newSelectedIds);
+    
+    // ✅ CRITICAL FIX: Update local ref immediately for next operation
+    currentSelectedIds.current = newSelectedIds;
+    
+    // ✅ CRITICAL FIX: Send update immediately (no debouncing)
+    onSelectionChange(newSelectedIds);
 
-    // Move focus to next/previous row
+    // ✅ SECOND - Move focus to next/previous row
     let targetIndex;
     if (direction === 'down') {
       targetIndex = currentFocusIndex + 1;
@@ -231,32 +250,7 @@ export const DataGrid = forwardRef(function DataGrid({
 
     console.log('🔥 Moving focus to index:', targetIndex);
 
-    // ✅ CRITICAL FIX: TOGGLE BEHAVIOR - Check if target item is already selected
     const targetItem = data[targetIndex];
-    const isTargetSelected = currentSelectedIds.current.includes(targetItem.id);
-    
-    console.log('🔥 Target item:', targetItem.id, 'isSelected:', isTargetSelected);
-    
-    let newSelectedIds;
-    
-    if (isTargetSelected) {
-      // ✅ UNCHECK: Remove from selection
-      console.log('🔥 Target is selected - UNCHECKING');
-      newSelectedIds = currentSelectedIds.current.filter(id => id !== targetItem.id);
-    } else {
-      // ✅ CHECK: Add to selection
-      console.log('🔥 Target is not selected - CHECKING');
-      newSelectedIds = [...currentSelectedIds.current, targetItem.id];
-    }
-    
-    console.log('🔥 New selection:', newSelectedIds);
-    
-    // ✅ CRITICAL FIX: Update local ref immediately for next operation
-    currentSelectedIds.current = newSelectedIds;
-    
-    // ✅ CRITICAL FIX: Send update immediately (no debouncing)
-    onSelectionChange(newSelectedIds);
-
     if (targetItem) {
       // ✅ CRITICAL FIX: Update local ref immediately
       currentFocusedId.current = targetItem.id;
