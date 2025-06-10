@@ -278,6 +278,47 @@ export const DataGrid = forwardRef(function DataGrid({
     }
   }, [data, showCheckboxes, onRowFocus, onSelectionChange, finalColumnDefs]);
 
+  // ✅ CRITICAL FIX: Handle Ctrl+A for select/deselect all
+  const handleSelectAll = useCallback(() => {
+    console.log('🔥 handleSelectAll called');
+    console.log('🔥 Current selectedIds:', currentSelectedIds.current);
+    console.log('🔥 Total data items:', data.length);
+    
+    if (!showCheckboxes || !onSelectionChange) {
+      console.log('🔥 Early return - checkboxes disabled or no onSelectionChange');
+      return;
+    }
+
+    const allItemIds = data.map(item => item.id);
+    console.log('🔥 All item IDs:', allItemIds);
+    
+    // ✅ CRITICAL FIX: Check if ALL items are currently selected
+    const allSelected = allItemIds.length > 0 && 
+                       currentSelectedIds.current.length === allItemIds.length && 
+                       allItemIds.every(id => currentSelectedIds.current.includes(id));
+    
+    console.log('🔥 All selected?', allSelected);
+    
+    let newSelectedIds;
+    if (allSelected) {
+      // ✅ All items are selected - DESELECT ALL
+      console.log('🔥 Deselecting all items');
+      newSelectedIds = [];
+    } else {
+      // ✅ Not all items are selected - SELECT ALL
+      console.log('🔥 Selecting all items');
+      newSelectedIds = [...allItemIds];
+    }
+    
+    console.log('🔥 New selection:', newSelectedIds);
+    
+    // ✅ Update local ref immediately
+    currentSelectedIds.current = newSelectedIds;
+    
+    // ✅ Send update to parent
+    onSelectionChange(newSelectedIds);
+  }, [data, showCheckboxes, onSelectionChange]);
+
   // Grid options with enhanced navigation
   const gridOptions = useMemo(
     () => ({
@@ -479,10 +520,14 @@ export const DataGrid = forwardRef(function DataGrid({
         onRowClick(currentFocusedId.current);
       }
 
-      // Handle Ctrl+A for select all (only if checkboxes are enabled)
-      if ((event.key === "a" || event.key === "A") && (event.ctrlKey || event.metaKey) && showCheckboxes && onSelectAll) {
+      // ✅ CRITICAL FIX: Handle Ctrl+A for select all (only if checkboxes are enabled)
+      if ((event.key === "a" || event.key === "A") && (event.ctrlKey || event.metaKey) && showCheckboxes) {
+        console.log('🔥 Ctrl+A detected in DataGrid');
         event.preventDefault();
-        onSelectAll();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        handleSelectAll();
+        return;
       }
 
       // ✅ CRITICAL FIX: Let AG Grid handle LEFT/RIGHT ARROW KEYS
@@ -498,7 +543,7 @@ export const DataGrid = forwardRef(function DataGrid({
     return () => {
       document.removeEventListener("keydown", handleKeyDown, true);
     };
-  }, [onRowClick, showCheckboxes, onSelectAll, data.length, enableHighlight, handleShiftArrowNavigation]);
+  }, [onRowClick, showCheckboxes, data.length, enableHighlight, handleShiftArrowNavigation, handleSelectAll]);
 
   // Handle cell focus events
   const handleCellFocused = useCallback((event) => {
