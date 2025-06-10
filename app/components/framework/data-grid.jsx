@@ -64,6 +64,7 @@ export const DataGrid = forwardRef(function DataGrid({
   
   // ✅ NEW: Track selection range for Shift+Arrow navigation
   const selectionAnchor = useRef(null);
+  const lastSelectionDirection = useRef(null); // Track if we're extending or contracting selection
 
   // ✅ Update refs when props change
   useEffect(() => {
@@ -185,7 +186,7 @@ export const DataGrid = forwardRef(function DataGrid({
     }, 10);
   }, []);
 
-  // ✅ NEW: Handle Shift + Arrow key selection and navigation
+  // ✅ NEW: Handle Shift + Arrow key selection and navigation with TOGGLE behavior
   const handleShiftArrowNavigation = useCallback((direction) => {
     console.log('🔥 handleShiftArrowNavigation called with direction:', direction);
     console.log('🔥 Current state - focusedId:', currentFocusedId.current, 'selectedIds:', currentSelectedIds.current);
@@ -208,6 +209,7 @@ export const DataGrid = forwardRef(function DataGrid({
     // ✅ CRITICAL FIX: Set anchor on first Shift+Arrow if not set
     if (selectionAnchor.current === null) {
       selectionAnchor.current = currentFocusIndex;
+      lastSelectionDirection.current = null;
       console.log('🔥 Setting selection anchor to:', selectionAnchor.current);
     }
 
@@ -229,26 +231,24 @@ export const DataGrid = forwardRef(function DataGrid({
 
     console.log('🔥 Moving focus to index:', targetIndex);
 
-    // ✅ CRITICAL FIX: Calculate range selection from anchor to target
-    const startIndex = Math.min(selectionAnchor.current, targetIndex);
-    const endIndex = Math.max(selectionAnchor.current, targetIndex);
+    // ✅ CRITICAL FIX: TOGGLE BEHAVIOR - Check if target item is already selected
+    const targetItem = data[targetIndex];
+    const isTargetSelected = currentSelectedIds.current.includes(targetItem.id);
     
-    // Get all items in the range
-    const rangeItems = data.slice(startIndex, endIndex + 1);
-    const rangeIds = rangeItems.map(item => item.id);
+    console.log('🔥 Target item:', targetItem.id, 'isSelected:', isTargetSelected);
     
-    // ✅ CRITICAL FIX: Combine existing selection with range selection
-    const existingSelection = currentSelectedIds.current.filter(id => {
-      // Keep selections that are not in the current range
-      const itemIndex = data.findIndex(item => item.id === id);
-      return itemIndex < startIndex || itemIndex > endIndex;
-    });
+    let newSelectedIds;
     
-    const newSelectedIds = [...existingSelection, ...rangeIds];
+    if (isTargetSelected) {
+      // ✅ UNCHECK: Remove from selection
+      console.log('🔥 Target is selected - UNCHECKING');
+      newSelectedIds = currentSelectedIds.current.filter(id => id !== targetItem.id);
+    } else {
+      // ✅ CHECK: Add to selection
+      console.log('🔥 Target is not selected - CHECKING');
+      newSelectedIds = [...currentSelectedIds.current, targetItem.id];
+    }
     
-    console.log('🔥 Range selection from', startIndex, 'to', endIndex);
-    console.log('🔥 Range IDs:', rangeIds);
-    console.log('🔥 Existing selection outside range:', existingSelection);
     console.log('🔥 New selection:', newSelectedIds);
     
     // ✅ CRITICAL FIX: Update local ref immediately for next operation
@@ -257,7 +257,6 @@ export const DataGrid = forwardRef(function DataGrid({
     // ✅ CRITICAL FIX: Send update immediately (no debouncing)
     onSelectionChange(newSelectedIds);
 
-    const targetItem = data[targetIndex];
     if (targetItem) {
       // ✅ CRITICAL FIX: Update local ref immediately
       currentFocusedId.current = targetItem.id;
@@ -399,6 +398,7 @@ export const DataGrid = forwardRef(function DataGrid({
     
     // ✅ CRITICAL FIX: Reset selection anchor on regular click
     selectionAnchor.current = null;
+    lastSelectionDirection.current = null;
     
     // Only handle focus logic if highlight is enabled
     if (enableHighlight) {
@@ -471,6 +471,7 @@ export const DataGrid = forwardRef(function DataGrid({
       // ✅ CRITICAL FIX: Reset selection anchor on non-Shift navigation
       if (!event.shiftKey && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
         selectionAnchor.current = null;
+        lastSelectionDirection.current = null;
       }
 
       // Handle Enter key when a row is focused (only if highlight is enabled)
