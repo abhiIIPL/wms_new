@@ -44,7 +44,7 @@ export const DataGrid = forwardRef(function DataGrid({
   onRowFocus,
   showCheckboxes = true,
   enablePagination = false,
-  enableHighlight = true,
+  enableHighlight = true, // ✅ Controls both highlighting AND initial focus
   rowHeight = 24,
   headerHeight = 30,
   emptyMessage = "No data found",
@@ -149,7 +149,7 @@ export const DataGrid = forwardRef(function DataGrid({
     }, 10);
   }, []);
 
-  // ✅ NUCLEAR OPTION: Completely disable AG Grid's keyboard navigation
+  // Grid options with enhanced navigation
   const gridOptions = useMemo(
     () => ({
       suppressCellFocus: false,
@@ -167,32 +167,55 @@ export const DataGrid = forwardRef(function DataGrid({
       suppressScrollOnNewData: true,
       suppressAnimationFrame: false,
       
-      // ✅ NUCLEAR OPTION: Disable ALL keyboard navigation
-      suppressKeyboardEvent: () => true, // Block ALL keyboard events from AG Grid
-      
-      // ✅ DISABLE ALL CLIPBOARD OPERATIONS
-      processDataFromClipboard: () => null,
-      sendToClipboard: () => null,
-      
-      // ✅ DISABLE RANGE SELECTION
-      enableRangeSelection: false,
-      enableRangeHandle: false,
-      enableFillHandle: false,
-      
-      // ✅ DISABLE CELL EDITING
-      editable: false,
-      
-      // ✅ DISABLE SORTING VIA KEYBOARD
-      suppressMultiSort: true,
-      
-      // ✅ DISABLE FILTERING VIA KEYBOARD
-      suppressMenuHide: true,
-      
-      // ✅ COMPLETELY DISABLE NAVIGATION
-      navigateToNextCell: () => null,
-      tabToNextCell: () => null,
-      navigateToNextHeader: () => null,
-      tabToNextHeader: () => null,
+      // ✅ ENHANCED NAVIGATION WITH PROPER CTRL+DOWN/UP BLOCKING
+      navigateToNextCell: (params) => {
+        const suggestedNextCell = params.nextCellPosition;
+        
+        // ✅ CRITICAL FIX: Block Ctrl + Down/Up BEFORE any processing
+        if (params.event && (params.event.ctrlKey || params.event.metaKey)) {
+          if (params.event.key === 'ArrowDown' || params.event.key === 'ArrowUp') {
+            // Completely stop the event and return the current cell to prevent any navigation
+            params.event.preventDefault();
+            params.event.stopPropagation();
+            params.event.stopImmediatePropagation();
+            
+            // Return the current cell position to maintain focus where it is
+            const currentCell = params.previousCellPosition;
+            return currentCell || null;
+          }
+        }
+        
+        if (!suggestedNextCell) return null;
+
+        // ✅ HANDLE LEFT/RIGHT ARROW KEYS WITH ensureColumnVisible
+        if (params.event && (params.event.key === 'ArrowLeft' || params.event.key === 'ArrowRight')) {
+          params.event.preventDefault();
+          
+          // Use our improved horizontal scroll handler
+          const direction = params.event.key === 'ArrowLeft' ? 'left' : 'right';
+          handleHorizontalScroll(direction);
+          
+          // Return null to prevent default AG Grid navigation
+          return null;
+        }
+
+        // Update row focus when navigating vertically (only if highlight is enabled)
+        if (enableHighlight && (params.event?.key === 'ArrowUp' || params.event?.key === 'ArrowDown')) {
+          const rowData = params.api.getDisplayedRowAtIndex(suggestedNextCell.rowIndex);
+          if (rowData && onRowFocus) {
+            onRowFocus(rowData.data.id);
+          }
+
+          // Ensure row is visible for vertical navigation
+          setTimeout(() => {
+            if (gridRef.current?.api) {
+              gridRef.current.api.ensureIndexVisible(suggestedNextCell.rowIndex, 'bottom');
+            }
+          }, 0);
+        }
+
+        return suggestedNextCell;
+      },
     }),
     [onRowFocus, showCheckboxes, enablePagination, headerHeight, enableHighlight, handleHorizontalScroll]
   );
@@ -249,7 +272,7 @@ export const DataGrid = forwardRef(function DataGrid({
     }
   }, [focusedId, lastClickedId]);
 
-  // ✅ CUSTOM KEYBOARD NAVIGATION - Completely replace AG Grid's
+  // Handle keyboard navigation
   useEffect(() => {
     const handleKeyDown = (event) => {
       // Only handle if grid is focused and we have data
@@ -264,19 +287,12 @@ export const DataGrid = forwardRef(function DataGrid({
 
       if (!isGridFocused) return;
 
-      // ✅ COMPLETELY BLOCK ALL CTRL/CMD COMBINATIONS
-      if (event.ctrlKey || event.metaKey) {
-        // Only allow Ctrl+A for select all
-        if ((event.key === "a" || event.key === "A") && showCheckboxes && onSelectAll) {
-          event.preventDefault();
-          onSelectAll();
-          return;
-        }
-        
-        // Block everything else
+      // ✅ CRITICAL FIX: Block Ctrl + Down/Up at document level with immediate stop
+      if ((event.ctrlKey || event.metaKey) && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
+        // Don't process any further - just return
         return;
       }
 
@@ -284,53 +300,19 @@ export const DataGrid = forwardRef(function DataGrid({
       if (event.key === "Enter" && focusedId && onRowClick && enableHighlight) {
         event.preventDefault();
         onRowClick(focusedId);
-        return;
       }
 
-      // ✅ CUSTOM ARROW KEY NAVIGATION
-      if (enableHighlight && focusedId) {
-        const currentIndex = data.findIndex(item => item.id === focusedId);
-        let newIndex = currentIndex;
+      // Handle Ctrl+A for select all (only if checkboxes are enabled)
+      if ((event.key === "a" || event.key === "A") && (event.ctrlKey || event.metaKey) && showCheckboxes && onSelectAll) {
+        event.preventDefault();
+        onSelectAll();
+      }
 
-        switch (event.key) {
-          case 'ArrowUp':
-            event.preventDefault();
-            newIndex = Math.max(0, currentIndex - 1);
-            break;
-          case 'ArrowDown':
-            event.preventDefault();
-            newIndex = Math.min(data.length - 1, currentIndex + 1);
-            break;
-          case 'Home':
-            event.preventDefault();
-            newIndex = 0;
-            break;
-          case 'End':
-            event.preventDefault();
-            newIndex = data.length - 1;
-            break;
-          case 'ArrowLeft':
-            event.preventDefault();
-            handleHorizontalScroll('left');
-            return;
-          case 'ArrowRight':
-            event.preventDefault();
-            handleHorizontalScroll('right');
-            return;
-          default:
-            return;
-        }
-
-        if (newIndex !== currentIndex && data[newIndex]) {
-          onRowFocus(data[newIndex].id);
-          
-          // Ensure the row is visible
-          setTimeout(() => {
-            if (gridRef.current?.api) {
-              gridRef.current.api.ensureIndexVisible(newIndex, 'middle');
-            }
-          }, 0);
-        }
+      // ✅ HANDLE LEFT/RIGHT ARROW KEYS FOR HORIZONTAL SCROLLING
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        // Let AG Grid's navigateToNextCell handle this
+        // The logic is implemented in the navigateToNextCell callback above
+        return;
       }
     };
 
@@ -338,7 +320,7 @@ export const DataGrid = forwardRef(function DataGrid({
     return () => {
       document.removeEventListener("keydown", handleKeyDown, true);
     };
-  }, [focusedId, onRowClick, showCheckboxes, onSelectAll, data, enableHighlight, onRowFocus, handleHorizontalScroll]);
+  }, [focusedId, onRowClick, showCheckboxes, onSelectAll, data.length, enableHighlight]);
 
   // Handle cell focus events
   const handleCellFocused = useCallback((event) => {
@@ -359,86 +341,6 @@ export const DataGrid = forwardRef(function DataGrid({
       onSelectionChange(selectedIds);
     }
   }, [showCheckboxes, onSelectionChange]);
-
-  // ✅ Grid ready handler with complete keyboard override
-  const handleGridReady = useCallback((params) => {
-    // ✅ ONLY SET INITIAL FOCUS IF HIGHLIGHT IS ENABLED
-    if (params.api && data.length > 0 && enableHighlight) {
-      const initialFocusIndex = focusedId 
-        ? data.findIndex(item => item.id === focusedId)
-        : 0;
-      const focusIndex = initialFocusIndex >= 0 ? initialFocusIndex : 0;
-      
-      // Set cell focus for keyboard navigation
-      const firstColumn = showCheckboxes ? 'select' : finalColumnDefs[0]?.field;
-      if (firstColumn) {
-        params.api.setFocusedCell(focusIndex, firstColumn);
-      }
-      
-      // Set our row focus
-      if (onRowFocus && data[focusIndex]) {
-        onRowFocus(data[focusIndex].id);
-      }
-    }
-
-    // ✅ NUCLEAR OPTION: Completely override AG Grid's keyboard handling
-    const gridElement = gridRef.current?.eGridDiv;
-    if (gridElement) {
-      // Remove any existing AG Grid keyboard listeners
-      const allElements = gridElement.querySelectorAll('*');
-      allElements.forEach(element => {
-        // Clone and replace to remove all event listeners
-        if (element.tagName === 'DIV' && element.getAttribute('role') === 'gridcell') {
-          const newElement = element.cloneNode(true);
-          element.parentNode.replaceChild(newElement, element);
-        }
-      });
-
-      // Add our own keyboard handler with highest priority
-      const nuclearKeyHandler = (event) => {
-        // Block ALL keyboard events that could cause issues
-        if (event.ctrlKey || event.metaKey) {
-          if (event.key !== 'a' && event.key !== 'A') { // Allow Ctrl+A only
-            event.preventDefault();
-            event.stopPropagation();
-            event.stopImmediatePropagation();
-            return false;
-          }
-        }
-        
-        // Block problematic keys
-        if (['F2', 'Delete', 'Backspace', 'Tab'].includes(event.key)) {
-          event.preventDefault();
-          event.stopPropagation();
-          event.stopImmediatePropagation();
-          return false;
-        }
-        
-        return true;
-      };
-
-      // Add with highest priority
-      gridElement.addEventListener('keydown', nuclearKeyHandler, true);
-      gridElement.addEventListener('keyup', nuclearKeyHandler, true);
-      gridElement.addEventListener('keypress', nuclearKeyHandler, true);
-      
-      // Store reference for cleanup
-      gridElement._nuclearKeyHandler = nuclearKeyHandler;
-    }
-  }, [data, enableHighlight, focusedId, showCheckboxes, finalColumnDefs, onRowFocus]);
-
-  // ✅ Clean up all custom key handlers
-  useEffect(() => {
-    return () => {
-      const gridElement = gridRef.current?.eGridDiv;
-      if (gridElement && gridElement._nuclearKeyHandler) {
-        gridElement.removeEventListener('keydown', gridElement._nuclearKeyHandler, true);
-        gridElement.removeEventListener('keyup', gridElement._nuclearKeyHandler, true);
-        gridElement.removeEventListener('keypress', gridElement._nuclearKeyHandler, true);
-        delete gridElement._nuclearKeyHandler;
-      }
-    };
-  }, []);
 
   if (loading) {
     return <CustomLoadingOverlay />;
@@ -552,7 +454,26 @@ export const DataGrid = forwardRef(function DataGrid({
           onSelectionChanged={handleSelectionChanged}
           onRowClicked={handleRowClick}
           onCellFocused={handleCellFocused}
-          onGridReady={handleGridReady}
+          onGridReady={(params) => {
+            // ✅ ONLY SET INITIAL FOCUS IF HIGHLIGHT IS ENABLED
+            if (params.api && data.length > 0 && enableHighlight) {
+              const initialFocusIndex = focusedId 
+                ? data.findIndex(item => item.id === focusedId)
+                : 0;
+              const focusIndex = initialFocusIndex >= 0 ? initialFocusIndex : 0;
+              
+              // Set cell focus for keyboard navigation
+              const firstColumn = showCheckboxes ? 'select' : finalColumnDefs[0]?.field;
+              if (firstColumn) {
+                params.api.setFocusedCell(focusIndex, firstColumn);
+              }
+              
+              // Set our row focus
+              if (onRowFocus && data[focusIndex]) {
+                onRowFocus(data[focusIndex].id);
+              }
+            }
+          }}
           loadingOverlayComponent={CustomLoadingOverlay}
           noRowsOverlayComponent={() => (
             <CustomNoRowsOverlay
