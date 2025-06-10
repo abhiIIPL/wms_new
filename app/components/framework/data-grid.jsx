@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo, useCallback, forwardRef, useImperativeHandle } from "react";
+import { useState, useEffect, useRef, useMemo, forwardRef, useImperativeHandle, useCallback } from "react";
 import { AgGridReact } from "ag-grid-react";
 import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";
 import { Button } from "@/components/ui/button";
@@ -317,6 +317,27 @@ export const DataGrid = forwardRef(function DataGrid({
     
     // ✅ Send update to parent
     onSelectionChange(newSelectedIds);
+    
+    // ✅ CRITICAL FIX: Force AG Grid to update its selection state immediately
+    setTimeout(() => {
+      if (gridRef.current?.api) {
+        const api = gridRef.current.api;
+        
+        // Get all row nodes
+        const allNodes = [];
+        api.forEachNode((node) => allNodes.push(node));
+        
+        // Update selection state for each node
+        allNodes.forEach((node) => {
+          const shouldBeSelected = newSelectedIds.includes(node.data.id);
+          const isCurrentlySelected = node.isSelected();
+          
+          if (shouldBeSelected !== isCurrentlySelected) {
+            node.setSelected(shouldBeSelected, false);
+          }
+        });
+      }
+    }, 0);
   }, [data, showCheckboxes, onSelectionChange]);
 
   // Grid options with enhanced navigation
