@@ -114,7 +114,7 @@ export const DataGrid = forwardRef(function DataGrid({
     []
   );
 
-  // ✅ IMPROVED HORIZONTAL SCROLLING WITH ensureColumnVisible
+  // ✅ IMPROVED HORIZONTAL SCROLLING WITH PROPER COLUMN HANDLING
   const handleHorizontalScroll = useCallback((direction) => {
     if (!gridRef.current?.api) return;
 
@@ -123,9 +123,29 @@ export const DataGrid = forwardRef(function DataGrid({
     if (!focusedCell) return;
 
     const visibleColumns = api.getAllDisplayedColumns();
-    const currentColumnIndex = visibleColumns.findIndex(col => col.getColId() === focusedCell.column);
     
-    if (currentColumnIndex === -1) return;
+    // ✅ CRITICAL FIX: Properly get the column ID from the focused cell
+    let currentColumnId;
+    if (focusedCell.column) {
+      // Try different ways to get the column ID
+      currentColumnId = focusedCell.column.getColId ? 
+        focusedCell.column.getColId() : 
+        focusedCell.column.colId || 
+        focusedCell.column;
+    }
+    
+    if (!currentColumnId) {
+      console.warn('Could not determine current column ID from focused cell:', focusedCell);
+      return;
+    }
+    
+    const currentColumnIndex = visibleColumns.findIndex(col => col.getColId() === currentColumnId);
+    
+    if (currentColumnIndex === -1) {
+      console.warn('Current column not found in visible columns. Column ID:', currentColumnId);
+      console.warn('Available column IDs:', visibleColumns.map(col => col.getColId()));
+      return;
+    }
 
     let targetColumnIndex;
     
