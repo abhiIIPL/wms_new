@@ -278,7 +278,7 @@ export const DataGrid = forwardRef(function DataGrid({
     }
   }, [data, showCheckboxes, onRowFocus, onSelectionChange, finalColumnDefs]);
 
-  // ✅ CRITICAL FIX: Handle Ctrl+A for select/deselect all - USE PARENT'S FUNCTION
+  // ✅ CRITICAL FIX: Handle Ctrl+A for select/deselect all - COMPLETELY REWRITTEN
   const handleSelectAll = useCallback(() => {
     console.log('🔥 DataGrid handleSelectAll called');
     
@@ -294,23 +294,26 @@ export const DataGrid = forwardRef(function DataGrid({
       return;
     }
 
-    // ✅ Fallback to internal logic if no parent function provided
-    console.log('🔥 Using internal select all logic');
-    console.log('🔥 Current selectedIds:', currentSelectedIds.current);
-    console.log('🔥 Total data items:', data.length);
-    
-    if (!onSelectionChange) {
-      console.log('🔥 Early return - no onSelectionChange');
+    // ✅ CRITICAL FIX: Get the CURRENT selection state from AG Grid, not from props
+    if (!gridRef.current?.api || !onSelectionChange) {
+      console.log('🔥 Early return - no grid API or onSelectionChange');
       return;
     }
 
+    const api = gridRef.current.api;
     const allItemIds = data.map(item => item.id);
+    
+    // ✅ CRITICAL FIX: Get current selection from AG Grid directly
+    const currentlySelectedNodes = api.getSelectedNodes();
+    const currentlySelectedIds = currentlySelectedNodes.map(node => node.data.id);
+    
     console.log('🔥 All item IDs:', allItemIds);
+    console.log('🔥 Currently selected IDs from AG Grid:', currentlySelectedIds);
     
     // ✅ CRITICAL FIX: Check if ALL items are currently selected
     const allSelected = allItemIds.length > 0 && 
-                       currentSelectedIds.current.length === allItemIds.length && 
-                       allItemIds.every(id => currentSelectedIds.current.includes(id));
+                       currentlySelectedIds.length === allItemIds.length && 
+                       allItemIds.every(id => currentlySelectedIds.includes(id));
     
     console.log('🔥 All selected?', allSelected);
     
@@ -331,25 +334,20 @@ export const DataGrid = forwardRef(function DataGrid({
     currentSelectedIds.current = newSelectedIds;
     
     // ✅ CRITICAL FIX: Force AG Grid to update BEFORE calling parent
-    if (gridRef.current?.api) {
-      const api = gridRef.current.api;
-      
-      // Get all row nodes
-      const allNodes = [];
-      api.forEachNode((node) => allNodes.push(node));
-      
-      // Update selection state for each node IMMEDIATELY
-      allNodes.forEach((node) => {
-        const shouldBeSelected = newSelectedIds.includes(node.data.id);
-        node.setSelected(shouldBeSelected, false); // false = don't trigger selection event
-      });
-      
-      console.log('🔥 AG Grid nodes updated, now calling parent onSelectionChange');
-    }
+    const allNodes = [];
+    api.forEachNode((node) => allNodes.push(node));
+    
+    // Update selection state for each node IMMEDIATELY
+    allNodes.forEach((node) => {
+      const shouldBeSelected = newSelectedIds.includes(node.data.id);
+      node.setSelected(shouldBeSelected, false); // false = don't trigger selection event
+    });
+    
+    console.log('🔥 AG Grid nodes updated, now calling parent onSelectionChange');
     
     // ✅ Send update to parent AFTER AG Grid is updated
     onSelectionChange(newSelectedIds);
-  }, [data, showCheckboxes, onSelectionChange, onSelectAll]); // ✅ Add onSelectAll to dependencies
+  }, [data, showCheckboxes, onSelectionChange, onSelectAll]);
 
   // Grid options with enhanced navigation
   const gridOptions = useMemo(
@@ -457,13 +455,8 @@ export const DataGrid = forwardRef(function DataGrid({
       // ✅ CRITICAL FIX: Force update all nodes regardless of current state
       allNodes.forEach((node) => {
         const shouldBeSelected = selectedIds.includes(node.data.id);
-        const isCurrentlySelected = node.isSelected();
-        
         // ✅ ALWAYS update the node selection state to match parent
-        if (shouldBeSelected !== isCurrentlySelected) {
-          console.log(`🔥 Updating node ${node.data.id}: ${isCurrentlySelected} -> ${shouldBeSelected}`);
-          node.setSelected(shouldBeSelected, false); // false = don't trigger selection event
-        }
+        node.setSelected(shouldBeSelected, false); // false = don't trigger selection event
       });
       
       console.log('🔥 AG Grid selection sync complete');
