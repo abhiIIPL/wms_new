@@ -82,7 +82,6 @@ export const ProfessionalTable = forwardRef(function ProfessionalTable({
   onRowClick,
   focusedItemId,
   onRowFocus,
-  onSelectAll, // ✅ CRITICAL FIX: Accept onSelectAll prop from parent
 }, ref) {
   const dataGridRef = useRef();
 
@@ -487,7 +486,6 @@ export const ProfessionalTable = forwardRef(function ProfessionalTable({
         emptyDescription="Get started by adding your first item."
         showAddButton={true}
         onAddClick={() => window.location.href = "/items/add"}
-        onSelectAll={onSelectAll} // ✅ CRITICAL FIX: Pass the parent's onSelectAll function
         className="h-full"
         data-testid="professional-table-data-grid"
       />

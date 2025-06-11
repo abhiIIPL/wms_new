@@ -52,7 +52,6 @@ export const DataGrid = forwardRef(function DataGrid({
   showAddButton = false,
   onAddClick,
   className = "",
-  onSelectAll, // ✅ CRITICAL FIX: Accept onSelectAll prop from parent
   ...gridProps
 }, ref) {
   const gridRef = useRef();
@@ -278,39 +277,26 @@ export const DataGrid = forwardRef(function DataGrid({
     }
   }, [data, showCheckboxes, onRowFocus, onSelectionChange, finalColumnDefs]);
 
-  // ✅ CRITICAL FIX: Handle Ctrl+A for select/deselect all - COMPLETELY REWRITTEN
-  const handleSelectAll = useCallback(() => {
-    console.log('🔥 DataGrid handleSelectAll called');
+  // ✅ NEW: Self-contained Ctrl+A logic within DataGrid
+  const handleInternalSelectAll = useCallback(() => {
+    console.log('🔥 DataGrid internal handleSelectAll called');
     
-    if (!showCheckboxes) {
-      console.log('🔥 Early return - checkboxes disabled');
-      return;
-    }
-
-    // ✅ CRITICAL FIX: Use parent's onSelectAll function if provided
-    if (onSelectAll) {
-      console.log('🔥 Using parent onSelectAll function');
-      onSelectAll();
-      return;
-    }
-
-    // ✅ CRITICAL FIX: Get the CURRENT selection state from AG Grid, not from props
-    if (!gridRef.current?.api || !onSelectionChange) {
-      console.log('🔥 Early return - no grid API or onSelectionChange');
+    if (!showCheckboxes || !gridRef.current?.api || !onSelectionChange) {
+      console.log('🔥 Early return - checkboxes disabled or missing requirements');
       return;
     }
 
     const api = gridRef.current.api;
     const allItemIds = data.map(item => item.id);
     
-    // ✅ CRITICAL FIX: Get current selection from AG Grid directly
+    // ✅ Get current selection from AG Grid directly
     const currentlySelectedNodes = api.getSelectedNodes();
     const currentlySelectedIds = currentlySelectedNodes.map(node => node.data.id);
     
     console.log('🔥 All item IDs:', allItemIds);
     console.log('🔥 Currently selected IDs from AG Grid:', currentlySelectedIds);
     
-    // ✅ CRITICAL FIX: Check if ALL items are currently selected
+    // ✅ Check if ALL items are currently selected
     const allSelected = allItemIds.length > 0 && 
                        currentlySelectedIds.length === allItemIds.length && 
                        allItemIds.every(id => currentlySelectedIds.includes(id));
@@ -330,10 +316,10 @@ export const DataGrid = forwardRef(function DataGrid({
     
     console.log('🔥 New selection:', newSelectedIds);
     
-    // ✅ CRITICAL FIX: Update local ref immediately
+    // ✅ Update local ref immediately
     currentSelectedIds.current = newSelectedIds;
     
-    // ✅ CRITICAL FIX: Force AG Grid to update BEFORE calling parent
+    // ✅ Force AG Grid to update BEFORE calling parent
     const allNodes = [];
     api.forEachNode((node) => allNodes.push(node));
     
@@ -347,7 +333,7 @@ export const DataGrid = forwardRef(function DataGrid({
     
     // ✅ Send update to parent AFTER AG Grid is updated
     onSelectionChange(newSelectedIds);
-  }, [data, showCheckboxes, onSelectionChange, onSelectAll]);
+  }, [data, showCheckboxes, onSelectionChange]);
 
   // Grid options with enhanced navigation
   const gridOptions = useMemo(
@@ -499,7 +485,7 @@ export const DataGrid = forwardRef(function DataGrid({
     }
   }, [focusedId, lastClickedId]);
 
-  // Handle keyboard navigation
+  // ✅ NEW: Self-contained keyboard navigation within DataGrid
   useEffect(() => {
     const handleKeyDown = (event) => {
       // Only handle if grid is focused and we have data
@@ -551,13 +537,13 @@ export const DataGrid = forwardRef(function DataGrid({
         onRowClick(currentFocusedId.current);
       }
 
-      // ✅ CRITICAL FIX: Handle Ctrl+A for select all (only if checkboxes are enabled)
+      // ✅ NEW: Handle Ctrl+A for select all (self-contained within DataGrid)
       if ((event.key === "a" || event.key === "A") && (event.ctrlKey || event.metaKey) && showCheckboxes) {
         console.log('🔥 Ctrl+A detected in DataGrid');
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
-        handleSelectAll();
+        handleInternalSelectAll();
         return;
       }
 
@@ -574,7 +560,7 @@ export const DataGrid = forwardRef(function DataGrid({
     return () => {
       document.removeEventListener("keydown", handleKeyDown, true);
     };
-  }, [onRowClick, showCheckboxes, data.length, enableHighlight, handleShiftArrowNavigation, handleSelectAll]);
+  }, [onRowClick, showCheckboxes, data.length, enableHighlight, handleShiftArrowNavigation, handleInternalSelectAll]);
 
   // Handle cell focus events
   const handleCellFocused = useCallback((event) => {

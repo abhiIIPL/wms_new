@@ -235,33 +235,6 @@ export default function ItemsPage() {
     setFocusedItemId(itemId);
   }, []);
 
-  // ✅ CRITICAL FIX: Handle select all - COMPLETELY REWRITTEN
-  const handleSelectAll = useCallback(() => {
-    console.log('🔥 ItemsPage handleSelectAll called');
-    console.log('🔥 Current selectedItemIds:', selectedItemIds);
-    console.log('🔥 Total items:', items.length);
-    
-    const allItemIds = items.map(item => item.id);
-    console.log('🔥 All item IDs:', allItemIds);
-    
-    // ✅ CRITICAL FIX: Check if ALL items are currently selected
-    const allSelected = allItemIds.length > 0 && 
-                       selectedItemIds.length === allItemIds.length && 
-                       allItemIds.every(id => selectedItemIds.includes(id));
-    
-    console.log('🔥 All selected?', allSelected);
-    
-    if (allSelected) {
-      // ✅ All items are selected - DESELECT ALL
-      console.log('🔥 Deselecting all items');
-      setSelectedItemIds([]);
-    } else {
-      // ✅ Not all items are selected - SELECT ALL
-      console.log('🔥 Selecting all items');
-      setSelectedItemIds([...allItemIds]);
-    }
-  }, [items, selectedItemIds]);
-
   // ✅ Function to refocus main grid - ONLY for vertical navigation
   const refocusMainGrid = useCallback(() => {
     if (activeGrid === 'main' && mainGridRef.current && mainGridRef.current.refocus) {
@@ -363,16 +336,6 @@ export default function ItemsPage() {
             handleAddItem();
           }
           break;
-        case "a":
-        case "A":
-          if (event.ctrlKey || event.metaKey) {
-            event.preventDefault();
-            // ✅ CRITICAL FIX: Call our handleSelectAll function
-            console.log('🔥 Ctrl+A detected in ItemsPage');
-            handleSelectAll();
-            refocusMainGrid(); // ✅ Refocus after select all
-          }
-          break;
         case "f":
         case "F":
           if (event.altKey || event.metaKey) {
@@ -422,7 +385,6 @@ export default function ItemsPage() {
     handlePaginationChange,
     items,
     selectedItemIds,
-    handleSelectAll, // ✅ Add handleSelectAll to dependencies
     refocusMainGrid,
     refocusTransactionGrid,
     activeGrid,
@@ -535,7 +497,6 @@ export default function ItemsPage() {
                       focusedItemId={focusedItemId}
                       onRowFocus={handleRowFocus}
                       enableHighlight={activeGrid === 'main'} // ✅ Only highlight when main grid is active
-                      onSelectAll={handleSelectAll} // ✅ CRITICAL FIX: Pass our handleSelectAll function
                       data-testid="items-page-professional-table"
                     />
                   </div>
