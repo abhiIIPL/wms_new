@@ -277,7 +277,7 @@ export const DataGrid = forwardRef(function DataGrid({
     }
   }, [data, showCheckboxes, onRowFocus, onSelectionChange, finalColumnDefs]);
 
-  // ✅ NEW: Self-contained Ctrl+A logic within DataGrid
+  // ✅ FIXED: Self-contained Ctrl+A logic within DataGrid
   const handleInternalSelectAll = useCallback(() => {
     console.log('🔥 DataGrid internal handleSelectAll called');
     
@@ -289,19 +289,30 @@ export const DataGrid = forwardRef(function DataGrid({
     const api = gridRef.current.api;
     const allItemIds = data.map(item => item.id);
     
-    // ✅ Get current selection from AG Grid directly
+    // ✅ CRITICAL FIX: Get current selection from AG Grid directly AND from props
     const currentlySelectedNodes = api.getSelectedNodes();
-    const currentlySelectedIds = currentlySelectedNodes.map(node => node.data.id);
+    const currentlySelectedIdsFromGrid = currentlySelectedNodes.map(node => node.data.id);
+    const currentlySelectedIdsFromProps = selectedIds || [];
     
     console.log('🔥 All item IDs:', allItemIds);
-    console.log('🔥 Currently selected IDs from AG Grid:', currentlySelectedIds);
+    console.log('🔥 Currently selected IDs from AG Grid:', currentlySelectedIdsFromGrid);
+    console.log('🔥 Currently selected IDs from props:', currentlySelectedIdsFromProps);
     
-    // ✅ Check if ALL items are currently selected
+    // ✅ CRITICAL FIX: Use the most accurate source of truth
+    // If AG Grid has selections, use that; otherwise use props
+    const currentlySelectedIds = currentlySelectedIdsFromGrid.length > 0 ? 
+      currentlySelectedIdsFromGrid : 
+      currentlySelectedIdsFromProps;
+    
+    console.log('🔥 Using selected IDs:', currentlySelectedIds);
+    
+    // ✅ CRITICAL FIX: More robust check for "all selected"
     const allSelected = allItemIds.length > 0 && 
-                       currentlySelectedIds.length === allItemIds.length && 
+                       currentlySelectedIds.length >= allItemIds.length && 
                        allItemIds.every(id => currentlySelectedIds.includes(id));
     
     console.log('🔥 All selected?', allSelected);
+    console.log('🔥 Total items:', allItemIds.length, 'Selected items:', currentlySelectedIds.length);
     
     let newSelectedIds;
     if (allSelected) {
@@ -319,13 +330,19 @@ export const DataGrid = forwardRef(function DataGrid({
     // ✅ Update local ref immediately
     currentSelectedIds.current = newSelectedIds;
     
-    // ✅ Force AG Grid to update BEFORE calling parent
+    // ✅ CRITICAL FIX: Force AG Grid to update BEFORE calling parent
     const allNodes = [];
     api.forEachNode((node) => allNodes.push(node));
+    
+    console.log('🔥 Updating', allNodes.length, 'AG Grid nodes');
     
     // Update selection state for each node IMMEDIATELY
     allNodes.forEach((node) => {
       const shouldBeSelected = newSelectedIds.includes(node.data.id);
+      const wasSelected = node.isSelected();
+      if (shouldBeSelected !== wasSelected) {
+        console.log(`🔥 Node ${node.data.id}: ${wasSelected} -> ${shouldBeSelected}`);
+      }
       node.setSelected(shouldBeSelected, false); // false = don't trigger selection event
     });
     
@@ -333,7 +350,7 @@ export const DataGrid = forwardRef(function DataGrid({
     
     // ✅ Send update to parent AFTER AG Grid is updated
     onSelectionChange(newSelectedIds);
-  }, [data, showCheckboxes, onSelectionChange]);
+  }, [data, showCheckboxes, onSelectionChange, selectedIds]);
 
   // Grid options with enhanced navigation
   const gridOptions = useMemo(
@@ -438,10 +455,9 @@ export const DataGrid = forwardRef(function DataGrid({
       const allNodes = [];
       api.forEachNode((node) => allNodes.push(node));
       
-      // ✅ CRITICAL FIX: Force update all nodes regardless of current state
+      // ✅ ALWAYS update the node selection state to match parent
       allNodes.forEach((node) => {
         const shouldBeSelected = selectedIds.includes(node.data.id);
-        // ✅ ALWAYS update the node selection state to match parent
         node.setSelected(shouldBeSelected, false); // false = don't trigger selection event
       });
       
@@ -485,7 +501,7 @@ export const DataGrid = forwardRef(function DataGrid({
     }
   }, [focusedId, lastClickedId]);
 
-  // ✅ NEW: Self-contained keyboard navigation within DataGrid
+  // ✅ FIXED: Self-contained keyboard navigation within DataGrid
   useEffect(() => {
     const handleKeyDown = (event) => {
       // Only handle if grid is focused and we have data
@@ -537,7 +553,7 @@ export const DataGrid = forwardRef(function DataGrid({
         onRowClick(currentFocusedId.current);
       }
 
-      // ✅ NEW: Handle Ctrl+A for select all (self-contained within DataGrid)
+      // ✅ FIXED: Handle Ctrl+A for select all (self-contained within DataGrid)
       if ((event.key === "a" || event.key === "A") && (event.ctrlKey || event.metaKey) && showCheckboxes) {
         console.log('🔥 Ctrl+A detected in DataGrid');
         event.preventDefault();
