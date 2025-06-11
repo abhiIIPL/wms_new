@@ -277,7 +277,7 @@ export const DataGrid = forwardRef(function DataGrid({
     }
   }, [data, showCheckboxes, onRowFocus, onSelectionChange, finalColumnDefs]);
 
-  // ✅ FIXED: Self-contained Ctrl+A logic within DataGrid
+  // ✅ FIXED: Self-contained Ctrl+A logic within DataGrid - PAGINATION AWARE
   const handleInternalSelectAll = useCallback(() => {
     console.log('🔥 DataGrid internal handleSelectAll called');
     
@@ -287,42 +287,40 @@ export const DataGrid = forwardRef(function DataGrid({
     }
 
     const api = gridRef.current.api;
-    const allItemIds = data.map(item => item.id);
     
-    // ✅ CRITICAL FIX: Get current selection from AG Grid directly AND from props
-    const currentlySelectedNodes = api.getSelectedNodes();
-    const currentlySelectedIdsFromGrid = currentlySelectedNodes.map(node => node.data.id);
-    const currentlySelectedIdsFromProps = selectedIds || [];
+    // ✅ CRITICAL FIX: Get CURRENT PAGE items only (not all data)
+    const currentPageItemIds = data.map(item => item.id);
     
-    console.log('🔥 All item IDs:', allItemIds);
-    console.log('🔥 Currently selected IDs from AG Grid:', currentlySelectedIdsFromGrid);
-    console.log('🔥 Currently selected IDs from props:', currentlySelectedIdsFromProps);
+    console.log('🔥 Current page item IDs:', currentPageItemIds);
+    console.log('🔥 Current page items count:', currentPageItemIds.length);
+    console.log('🔥 Currently selected IDs from props:', selectedIds);
     
-    // ✅ CRITICAL FIX: Use the most accurate source of truth
-    // If AG Grid has selections, use that; otherwise use props
-    const currentlySelectedIds = currentlySelectedIdsFromGrid.length > 0 ? 
-      currentlySelectedIdsFromGrid : 
-      currentlySelectedIdsFromProps;
+    // ✅ CRITICAL FIX: Check how many items from CURRENT PAGE are selected
+    const currentPageSelectedIds = selectedIds.filter(id => currentPageItemIds.includes(id));
     
-    console.log('🔥 Using selected IDs:', currentlySelectedIds);
+    console.log('🔥 Current page selected IDs:', currentPageSelectedIds);
+    console.log('🔥 Current page selected count:', currentPageSelectedIds.length);
     
-    // ✅ CRITICAL FIX: More robust check for "all selected"
-    const allSelected = allItemIds.length > 0 && 
-                       currentlySelectedIds.length >= allItemIds.length && 
-                       allItemIds.every(id => currentlySelectedIds.includes(id));
+    // ✅ CRITICAL FIX: Compare with CURRENT PAGE items only
+    const allCurrentPageSelected = currentPageItemIds.length > 0 && 
+                                   currentPageSelectedIds.length === currentPageItemIds.length;
     
-    console.log('🔥 All selected?', allSelected);
-    console.log('🔥 Total items:', allItemIds.length, 'Selected items:', currentlySelectedIds.length);
+    console.log('🔥 All current page items selected?', allCurrentPageSelected);
+    console.log('🔥 Current page items:', currentPageItemIds.length, 'Selected from current page:', currentPageSelectedIds.length);
     
     let newSelectedIds;
-    if (allSelected) {
-      // ✅ All items are selected - DESELECT ALL
-      console.log('🔥 Deselecting all items');
-      newSelectedIds = [];
+    
+    if (allCurrentPageSelected) {
+      // ✅ All current page items are selected - DESELECT CURRENT PAGE ITEMS
+      console.log('🔥 Deselecting all current page items');
+      // Remove current page items from selection, keep items from other pages
+      newSelectedIds = selectedIds.filter(id => !currentPageItemIds.includes(id));
     } else {
-      // ✅ Not all items are selected - SELECT ALL
-      console.log('🔥 Selecting all items');
-      newSelectedIds = [...allItemIds];
+      // ✅ Not all current page items are selected - SELECT ALL CURRENT PAGE ITEMS
+      console.log('🔥 Selecting all current page items');
+      // Add current page items to selection, keep existing selections from other pages
+      const existingSelectionsFromOtherPages = selectedIds.filter(id => !currentPageItemIds.includes(id));
+      newSelectedIds = [...existingSelectionsFromOtherPages, ...currentPageItemIds];
     }
     
     console.log('🔥 New selection:', newSelectedIds);
